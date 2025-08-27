@@ -27,12 +27,13 @@
       changed_when: false
       failed_when: "'Unauthorized' in atlas_response.stdout"
 
-    - name: Save Atlas cluster response to a JSON file
-      ansible.builtin.copy:
-        content: "{{ atlas_response.stdout }}"
-        dest: "./clusters_and_members.json"
+    - name: Save pretty-printed Atlas response to clusters_and_members.json using jq
+      ansible.builtin.shell: |
+        echo '{{ atlas_response.stdout }}' | jq . > clusters_and_members.json
+      args:
+        chdir: "{{ playbook_dir }}"
 
-    - name: Extract hostnames per cluster from clusters.json
+    - name: Extract hostnames per cluster from clusters_and_members.json
       ansible.builtin.shell: |
         jq -r '.results[] | "\(.name) \(.connectionStrings.standard)"' clusters_and_members.json \
         | while read -r name connstr; do
