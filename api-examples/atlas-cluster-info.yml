@@ -1,0 +1,60 @@
+- hosts: localhost
+  gather_facts: no
+  # Encrypted ansible variable files housing the variables:
+  #  - vaulted_atlas_public_key
+  #  - vaulted_atlas_private_key
+  #  - vaulted_db_password
+  #  - vaulted_atlas_project_id
+  vars_files:
+    - ../credentials/atlas_creds.yml
+    - ../credentials/atlas_org_details.yml
+
+  tasks:
+
+    - name: Query Atlas cluster info using uri
+      ansible.builtin.uri:
+        url: "https://cloud.mongodb.com/api/atlas/v2/groups/{{ vaulted_atlas_project_id}}/clusters"
+        method: GET
+        user: "{{ vaulted_atlas_public_key }}"
+        password: "{{ vaulted_atlas_private_key }}"
+        force_basic_auth: false
+        body_format: json
+        return_content: true
+        headers:
+          Accept: "application/vnd.atlas.2025-03-12+json"
+          Content-Type: "application/json"
+        status_code: 200
+        body: "{}"
+        validate_certs: true
+        use_proxy: false
+        timeout: 30
+      register: atlas_response
+      failed_when: "'Unauthorized' in atlas_response.content"
+      changed_when: false
+
+    
+    - name: Save Atlas cluster response to a JSON file
+      ansible.builtin.copy:
+        content: "{{ atlas_response.json | to_nice_json }}"
+        dest: "./clusters_and_members.json"
+
+    - name: Extract hostnames per cluster from clusters.json
+      ansible.builtin.shell: |
+        jq -r '.results[] | "\(.name) \(.connectionStrings.standard)"' clusters_and_members.json \
+        | while read -r name connstr; do
+            hosts=$(echo "$connstr" \
+              | sed 's/^mongodb:\/\///' \
+              | sed 's/\?.*//' \
+              | tr ',' '\n' \
+              | cut -d':' -f1)
+            echo "Cluster: $name"
+            echo "$hosts"
+            echo "---"
+          done
+      args:
+        chdir: "{{ playbook_dir }}"
+      register: parsed_clusters
+
+    - name: Display all clusters and their hostnames
+      ansible.builtin.debug:
+        msg: "{{ parsed_clusters.stdout_lines }}"
