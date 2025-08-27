@@ -11,31 +11,25 @@
 
   tasks:
 
-    - name: Query Atlas cluster info using uri
-      ansible.builtin.uri:
-        url: "https://cloud.mongodb.com/api/atlas/v2/groups/{{ vaulted_atlas_project_id}}/clusters"
-        method: GET
-        user: "{{ vaulted_atlas_public_key }}"
-        password: "{{ vaulted_atlas_private_key }}"
-        force_basic_auth: false
-        body_format: json
-        return_content: true
-        headers:
-          Accept: "application/vnd.atlas.2025-03-12+json"
-          Content-Type: "application/json"
-        status_code: 200
-        body: "{}"
-        validate_certs: true
-        use_proxy: false
-        timeout: 30
+    - name: Query Atlas cluster info using curl
+      ansible.builtin.shell: |
+        curl --user "{{ vaulted_atlas_public_key }}:{{ vaulted_atlas_private_key }}" \
+            --digest \
+            -H "Accept: application/vnd.atlas.2025-03-12+json" \
+            -H "Content-Type: application/json" \
+            -X GET \
+            -d '{}' \
+            "https://cloud.mongodb.com/api/atlas/v2/groups/{{ vaulted_atlas_project_id }}/clusters" \
+            | tee clusters_and_members.json
+      args:
+        chdir: "{{ playbook_dir }}"
       register: atlas_response
-      failed_when: "'Unauthorized' in atlas_response.content"
       changed_when: false
+      failed_when: "'Unauthorized' in atlas_response.stdout"
 
-    
     - name: Save Atlas cluster response to a JSON file
       ansible.builtin.copy:
-        content: "{{ atlas_response.json | to_nice_json }}"
+        content: "{{ atlas_response.stdout }}"
         dest: "./clusters_and_members.json"
 
     - name: Extract hostnames per cluster from clusters.json
