@@ -79,27 +79,24 @@ def ensure_vector_index():
     if existing:
         # Optionally verify dims/similarity, but we'll skip strict checks
         return
-
+    
     index_def = {
         "name": "plot_embedding_index",
+        "type": "vectorSearch",  
         "definition": {
-            "mappings": {
-                "dynamic": False,
-                "fields": {
-                    "plot_embedding": {
-                        "type": "vector",
-                        "dims": EMBEDDING_DIM,
-                        "similarity": "cosine"
-                    }
+            "fields": [
+                {
+                    "type": "vector",
+                    "path": "plot_embedding",
+                    "numDimensions": EMBEDDING_DIM,
+                    "similarity": "cosine"
                 }
-            }
+            ]
         }
     }
+
     try:
-        mongo[DB_NAME].command({
-            "createSearchIndexes": COLLECTION_NAME,
-            "indexes": [index_def]
-        })
+        mongo[DB_NAME][COLLECTION_NAME].create_search_index(index_def)
         print(f"Created Vector Search index 'plot_embedding_index' with dims={EMBEDDING_DIM}")
     except PyMongoError as e:
         # Non-fatal: user may lack permissions, or index already exists
