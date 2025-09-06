@@ -38,9 +38,9 @@ load_dotenv()
 MONGODB_URI = os.getenv("MONGODB_URI")
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 
-# if not MONGODB_URI:
-#     print("ERROR: MONGODB_URI not set. Set it in your environment or .env file.", file=sys.stderr)
-#     sys.exit(1)
+if not MONGODB_URI:
+    print("ERROR: MONGODB_URI not set. Set it in your environment or .env file.", file=sys.stderr)
+    sys.exit(1)
 if not VOYAGE_API_KEY:
     print("ERROR: VOYAGE_API_KEY not set. Set it in your environment or .env file.", file=sys.stderr)
     sys.exit(1)
@@ -90,6 +90,10 @@ def ensure_vector_index():
                     "path": "plot_embedding",
                     "numDimensions": EMBEDDING_DIM,
                     "similarity": "cosine"
+                },
+                {
+                    "type": "filter",
+                    "path": "year"
                 }
             ]
         }
