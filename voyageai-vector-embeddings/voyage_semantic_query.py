@@ -41,7 +41,6 @@ def get_embeddings(texts, model, dimensions, api_key):
                 texts=texts,
                 model=model,
                 input_type="document",
-                # input_type="query",
                 truncation=True,
                 output_dimension=dimensions
             )
@@ -54,7 +53,7 @@ def main():
 
     query_embedding = get_embeddings([query], VOYAGE_MODEL, EMBEDDING_DIM, VOYAGE_API_KEY)
 
-    print("Query embedding:", query_embedding)
+    # print("Query embedding:", query_embedding)
 
     semantic_query = {
         "$vectorSearch": {
@@ -79,10 +78,6 @@ def main():
     pipeline = [
         semantic_query, semantic_query_projection
     ]
-
-    # pipeline = [
-    #     semantic_query_projection
-    # ]
 
     results = coll.aggregate(pipeline)
 

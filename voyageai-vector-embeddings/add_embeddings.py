@@ -17,9 +17,9 @@ Environment variables (recommended to put in a .env file next to this script):
 
 The script:
   - Ensures a Search index named `plot_embedding_index` exists (create if missing).
-  - Batches through documents missing `plot_embedding`, computes embeddings for `plot`,
+  - Batches through documents missing `plot_embedding`, computes embeddings for `fullplot`,
     and writes them to `plot_embedding` using bulk writes.
-  - Skips docs without a non-empty `plot` field.
+  - Skips docs without a non-empty `fullplot` field.
   - Safe to re-run; it only processes docs missing `plot_embedding`.
 """
 
@@ -61,51 +61,6 @@ mongo = MongoClient(
 )
 coll = mongo[DB_NAME][COLLECTION_NAME]
 
-def ensure_vector_index():
-    """
-    Create/ensure an Atlas Vector Search index for plot_embedding with the right dimension.
-    Uses name: plot_embedding_index
-    """
-    try:
-        # Check if exists
-        existing = mongo[DB_NAME].command({
-            "listSearchIndexes": COLLECTION_NAME,
-            "name": "plot_embedding_index"
-        }).get("indexes", [])
-    except PyMongoError:
-        # Older drivers/servers may not support listSearchIndexes via command; ignore and try to create
-        existing = []
-
-    if existing:
-        # Optionally verify dims/similarity, but we'll skip strict checks
-        return
-    
-    index_def = {
-        "name": "plot_embedding_index",
-        "type": "vectorSearch",  
-        "definition": {
-            "fields": [
-                {
-                    "type": "vector",
-                    "path": "plot_embedding",
-                    "numDimensions": EMBEDDING_DIM,
-                    "similarity": "cosine"
-                },
-                {
-                    "type": "filter",
-                    "path": "year"
-                }
-            ]
-        }
-    }
-
-    try:
-        mongo[DB_NAME][COLLECTION_NAME].create_search_index(index_def)
-        print(f"Created Vector Search index 'plot_embedding_index' with dims={EMBEDDING_DIM}")
-    except PyMongoError as e:
-        # Non-fatal: user may lack permissions, or index already exists
-        print(f"WARN: Could not create vector index automatically: {e}", file=sys.stderr)
-
 def batched(iterable, n):
     batch = []
     for item in iterable:
@@ -118,16 +73,16 @@ def batched(iterable, n):
 
 def fetch_docs_to_process(limit: int = BATCH_SIZE):
     """
-    Query only docs that need embeddings and have a non-empty plot string.
+    Query only docs that need embeddings and have a non-empty fullplot string.
     """
     return coll.find(
         {
             "plot_embedding": {"$exists": False},
-            "plot": {"$type": "string", "$ne": ""}
+            "fullplot": {"$type": "string", "$ne": ""}
         },
         {
             "_id": 1,
-            "plot": 1
+            "fullplot": 1
         },
         no_cursor_timeout=True
     ).batch_size(BATCH_SIZE)
@@ -156,7 +111,6 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
     raise RuntimeError("Exceeded retries for embed_texts")
 
 def main():
-    # ensure_vector_index()
 
     cursor = fetch_docs_to_process()
     total_updates = 0
@@ -166,7 +120,7 @@ def main():
             if not batch_docs:
                 break
 
-            texts = [d["plot"] for d in batch_docs]
+            texts = [d["fullplot"] for d in batch_docs]
             try:
                 vectors = embed_texts(texts)
             except Exception:
@@ -190,8 +144,6 @@ def main():
         cursor.close()
 
     print(f"Done. Total documents updated with plot_embedding: {total_updates}")
-
-    ensure_vector_index()
 
 if __name__ == "__main__":
     main()
