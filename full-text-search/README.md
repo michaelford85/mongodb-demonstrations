@@ -125,7 +125,7 @@ python regex_fts_comparison.py
 The script will:
 - Connect to `sample_mflix.movies`
 - Ensure the Atlas Search index exists (if applicable)
-- Run comparable queries using:
+- Run comparable queries for both strings `Black Cat` and the misspelled `Blck Cat` using:
   - Atlas Search ($search)
   - Regex ($regex)
 - Print/compare results (timing + relevance characteristics)
