@@ -1,3 +1,5 @@
 .DS_Store
 ./api-examples/clusters_and_members.json
-./voyageai-vector-embeddings/.env
+*/.env
+*/.env.vault
+*/.env.me
