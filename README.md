@@ -20,6 +20,28 @@ mongodb-demonstrations/
 └── README.md
 ```
 
+---
+## Python Dependencies
+
+Each demonstration folder will include its **own ****requirements.txt**** file**.
+
+This is intentional and by design:
+
+- Each demo is self-contained
+- Dependencies are explicit and minimal
+- You can run or demo folders independently
+- No global dependency coupling across demos
+
+Example:
+
+```
+cd full-text-search
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
 Below is a brief description of what each folder contains.
 
 ---
@@ -88,28 +110,6 @@ This folder highlights:
 - Storing and indexing vector data in Atlas
 - Performing semantic and hybrid search
 - Foundations for RAG-style applications
-
----
-
-## Python Dependencies
-
-Each demonstration folder will include its **own ****requirements.txt**** file**.
-
-This is intentional and by design:
-
-- Each demo is self-contained
-- Dependencies are explicit and minimal
-- You can run or demo folders independently
-- No global dependency coupling across demos
-
-Example:
-
-```
-cd full-text-search
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
 
 ---
 
