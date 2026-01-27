@@ -93,12 +93,12 @@ MongoDB Atlas Cluster
 .
 ├── README.md
 ├── search_demo.py
-├── .env.example
+├── .env_._example
 └── requirements.txt
 ```
 
 - `search_demo.py` – Runs a simple Atlas Search query
-- `.env.example` – Environment variable template (safe dummy values)
+- `.env_example` – Environment variable template (safe dummy values)
 - `requirements.txt` – Python dependencies
 
 ---
@@ -155,7 +155,7 @@ pip install -r requirements.txt
 Copy the example file:
 
 ```bash
-cp .env.example .env
+cp .env_example .env
 ```
 
 Edit `.env`:
