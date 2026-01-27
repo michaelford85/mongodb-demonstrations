@@ -33,6 +33,24 @@ This aligns with common enterprise security requirements:
 
 ## Architecture Overview
 
+```mermaid
+graph TD
+    A[Home Laptop] -->|SSH| B[Bastion Host<br/>Public Subnet]
+    B -->|SSH<br/>private IP only| C[Application EC2<br/>Private Subnet]
+    C -->|TLS over<br/>AWS backbone| D[AWS PrivateLink<br/>Endpoint]
+    D --> E[MongoDB Atlas Cluster]
+    E --> F[Dedicated Search Nodes]
+    E --> G[Private Endpoint Only]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#ffe8e8
+    style F fill:#ffe8e8
+    style G fill:#ffe8e8
+```
+<!-- 
 ```
 Home Laptop
     │
@@ -52,7 +70,7 @@ AWS PrivateLink Endpoint
 MongoDB Atlas Cluster
   • Dedicated Search Nodes
   • Private Endpoint Only
-```
+``` -->
 
 ---
 
