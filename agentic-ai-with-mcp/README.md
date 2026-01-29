@@ -131,6 +131,48 @@ This command will:
 - Download `mongodb-mcp-server` from npm at runtime
 - Launch it over STDIO
 - Start the MCP Inspector UI (typically at http://localhost:6274)
+
+### Step 3: Connect to the MCP Server in the MCP Inspector UI
+
+Once the MCP Inspector has started, open the Inspector UI in your browser if it has not opened already (typically at http://localhost:6274).
+
+Before connecting to the MongoDB MCP server, you **must populate the Inspector Proxy field**.
+
+#### Required Proxy Address Configuration
+
+In the left-hand configuration panel:
+
+- **Inspector Proxy Address** must be set to:
+
+```text
+http://localhost:6277
+```
+
+This value tells the Inspector UI how to communicate with the MCP proxy that was started when launching the Inspector.
+
+The Proxy Session Token should be auto-populated when the Inspector starts, but if not, it was printed to the CLI output when you start the Inspector in step 2.
+
+The screenshot below shows the required proxy configuration before clicking Connect:
+
+<img src="images/inspector_disconnected.png" alt="MCP Inspector proxy configuration" width="600" />
+
+#### Available MongoDB MCP Tools
+
+Once connected, the Inspector exposes all MongoDB MCP tools made available
+by the running `mongodb-mcp-server`.
+
+These tools allow an AI agent to:
+- Read and analyze data (`find`, `aggregate`)
+- Inspect schemas and indexes
+- Perform vector search (when enabled)
+- Persist agent memory (`insert-many`, `update-many`)
+- Safely perform controlled write operations
+
+The screenshot below shows the full set of MongoDB MCP tools available
+in this demo environment:
+
+<img src="images/inspector_tools.png" alt="MongoDB MCP tools in Inspector" width="600" />
+
 - Expose MongoDB tools (find, aggregate, insert, vector search, etc.) to the Inspector
 
 > The server runs from an ephemeral npm cache and is discarded when the process exits.
