@@ -1,26 +1,43 @@
 # Agentic AI with MCP (MongoDB Demonstration)
 
 This directory demonstrates an **agentic AI workflow using MongoDB + MCP (Model Context Protocol)**.
-The focus of this demo is showing how an AI agent can:
 
-- Reason over data using MongoDB tools
+The goal of this demo is to show how an AI agent can:
+
+- Reason over MongoDB data using MCP tools
 - Perform multi-step analysis (semantic retrieval + aggregation)
 - Persist **agent memory** back into MongoDB
-- Safely operate using MCP Inspector for observability and control
+- Operate safely with human-in-the-loop controls
+- Be observed and debugged via the MCP Inspector
 
-This demo intentionally uses **public MongoDB sample datasets** (e.g. `sample_mflix`) and **ephemeral MCP services** so it can be reproduced easily and safely.
+The demo intentionally uses **public MongoDB sample datasets** (for example, `sample_mflix`) and **ephemeral MCP services** so it can be reproduced easily and safely.
 
 ---
 
 ## High-level Architecture
 
-- **MongoDB Atlas** – system of record + vector search + memory storage
-- **mongodb-mcp-server** – exposes MongoDB capabilities via MCP (run ephemerally via `npx`)
-- **MCP Inspector** – observability, debugging, and safety controls
-- **Python** – local orchestration, embeddings, and demo utilities
-- **VoyageAI** – vector embeddings (Voyage v4 family)
+- **MongoDB Atlas**
+  - System of record
+  - Vector Search (Atlas Search)
+  - Persistent agent memory
 
-> The `mongodb-mcp-server` is **not vendored into this repository**. It is launched ephemerally via `npx` during the demo.
+- **mongodb-mcp-server**
+  - Exposes MongoDB capabilities via MCP
+  - Run ephemerally via `npx` (not cloned into this repo)
+
+- **MCP Inspector**
+  - UI for inspecting tools, requests, and safety confirmations
+
+- **Python**
+  - Local orchestration
+  - Embedding backfill scripts
+  - Demo utilities
+
+- **VoyageAI**
+  - Vector embeddings (Voyage v4 family)
+
+> **Important:** `mongodb-mcp-server` is *not* vendored into this repository.  
+> It is launched ephemerally via `npx` during the demo.
 
 ---
 
@@ -34,9 +51,26 @@ This demo intentionally uses **public MongoDB sample datasets** (e.g. `sample_mf
 
 ---
 
+## Repository Layout
+
+```text
+mongodb-demonstrations/
+└── agentic-ai-with-mcp/
+    ├── README.md
+    ├── requirements.txt
+    ├── .env              # not committed
+    ├── .venv/            # local Python virtual environment
+    ├── api-examples/
+    └── voyageai-vector-embeddings/
+```
+
+This repository intentionally **does not** contain a copy of `mongodb-mcp-server`.
+
+---
+
 ## Environment Variables (`.env`)
 
-Create a `.env` file in **this directory** (`agentic-ai-with-mcp/`).  
+Create a `.env` file in this directory (`agentic-ai-with-mcp/`).  
 This file is intentionally **not committed to git**.
 
 ```env
@@ -47,7 +81,7 @@ MDB_MCP_API_CLIENT_SECRET=your_atlas_client_secret
 # Enable Atlas Search / Vector Search tools
 MDB_MCP_PREVIEW_FEATURES=search
 
-# VoyageAI API key (for vector embeddings)
+# VoyageAI API key (used for vector embeddings)
 MDB_MCP_VOYAGE_API_KEY=your_voyage_api_key
 
 # Require confirmation for write / destructive tools
@@ -58,47 +92,25 @@ MDB_MCP_CONFIRMATION_REQUIRED_TOOLS=insert-many,update-many,delete-many,drop-col
 
 ## Python Virtual Environment Setup
 
-All Python work for this demo is isolated to a local virtual environment.
+All Python dependencies for this demo are isolated to a local virtual environment.
 
 From `agentic-ai-with-mcp/`:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-```
 
-Upgrade pip and install dependencies:
-
-```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
-
-## `requirements.txt`
-
-Create a `requirements.txt` file in this directory with the following contents:
-
-```txt
-mcp[cli]
-pymongo
-voyageai
-python-dotenv
-```
-
-These packages are used for:
-
-- MCP client utilities and CLI
-- MongoDB access from Python
-- Embedding backfill scripts
-- Local orchestration and experimentation
+The `requirements.txt` file is included in this repository and contains all required Python packages.
 
 ---
 
 ## Running the MCP Inspector with MongoDB MCP Server
 
-The MongoDB MCP server is launched **ephemerally** via `npx` and inspected using the MCP Inspector.
+The MongoDB MCP server is launched **ephemerally** using `npx` and inspected using the MCP Inspector.
 
 ### Step 1: Load environment variables
 
@@ -108,17 +120,51 @@ source .env
 set +a
 ```
 
-### Step 2: Start MCP Inspector + MongoDB MCP Server
+### Step 2: Start MCP Inspector and MongoDB MCP Server
 
 ```bash
 npx -y @modelcontextprotocol/inspector   npx -y mongodb-mcp-server@latest --readOnly=false
 ```
 
-This will:
+This command will:
 
-- Start the **MCP Inspector UI** (typically at http://localhost:6274)
-- Launch `mongodb-mcp-server` over STDIO
+- Download `mongodb-mcp-server` from npm at runtime
+- Launch it over STDIO
+- Start the MCP Inspector UI (typically at http://localhost:6274)
 - Expose MongoDB tools (find, aggregate, insert, vector search, etc.) to the Inspector
+
+> The server runs from an ephemeral npm cache and is discarded when the process exits.
+
+---
+
+## About Directory Structure and `npx`
+
+The command above **does not depend on any local `mongodb-mcp-server` directory**.
+
+- `npx mongodb-mcp-server@latest` downloads and runs the server dynamically
+- The server does **not** need to exist anywhere in your filesystem
+- Your current working directory does not matter
+
+This approach is intentional and keeps the demo:
+
+- Clean
+- Reproducible
+- Free of vendored Node.js dependencies
+
+---
+
+## Optional: Using a Local Clone (Not Required)
+
+If you wish to inspect or debug the MongoDB MCP server implementation, you may clone it **outside this repository**, for example:
+
+```text
+~/src/mongodb-mcp-server/
+mongodb-demonstrations/agentic-ai-with-mcp/
+```
+
+You could then run the Inspector against the local server entrypoint.
+
+This is **not required** for this demo and is intentionally omitted to keep the repository focused and easy to understand.
 
 ---
 
@@ -126,23 +172,12 @@ This will:
 
 This demo emphasizes **agentic behavior**, specifically:
 
-1. Retrieve similar "cases" (e.g. `sample_mflix.comments`) using semantic meaning
-2. Verify patterns using MongoDB aggregations
-3. Persist conclusions into a dedicated memory collection (e.g. `mcp_config.investigations`)
+1. Retrieve similar "cases" using semantic meaning (vector search)
+2. Validate hypotheses using MongoDB aggregations
+3. Persist conclusions into a dedicated memory collection (for example, `mcp_config.investigations`)
 4. Recall and compare past investigations in follow-up interactions
 
-All memory writes are gated via MCP confirmation controls.
-
----
-
-## Notes on Ephemeral Dependencies
-
-- `mongodb-mcp-server` is **not cloned into this repository**
-- It is executed via `npx` for:
-  - Clean demos
-  - Reproducibility
-  - No vendored Node dependencies
-- You may clone the server **outside this repo** for inspection or debugging, but it is not required
+All memory writes are gated using MCP confirmation controls.
 
 ---
 
@@ -160,4 +195,11 @@ No permanent services or infrastructure changes are required.
 
 ## Repository Intent
 
-This repository is intended to demonstrate **how agentic AI systems can safely reason, act, and remember using MongoDB as a core system of record** — not to serve as a production application.
+This repository exists to demonstrate **how agentic AI systems can safely reason, act, and remember using MongoDB as a core system of record**.
+
+It is intended for:
+- demonstrations
+- education
+- architectural discussion
+
+It is **not** intended to be a production application.
