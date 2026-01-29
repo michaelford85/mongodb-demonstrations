@@ -150,7 +150,7 @@ http://localhost:6277
 
 This value tells the Inspector UI how to communicate with the MCP proxy that was started when launching the Inspector.
 
-The Proxy Session Token should be auto-populated when the Inspector starts, but if not, it was printed to the CLI output when you start the Inspector in step 2.
+The **Proxy Session Token** should be auto-populated when the Inspector starts, but if not, it was printed to the CLI output when you start the Inspector in step 2.
 
 The screenshot below shows the required proxy configuration before clicking Connect:
 
@@ -173,15 +173,13 @@ in this demo environment:
 
 <img src="images/inspector_tools.png" alt="MongoDB MCP tools in Inspector" width="600" />
 
-- Expose MongoDB tools (find, aggregate, insert, vector search, etc.) to the Inspector
-
 > The server runs from an ephemeral npm cache and is discarded when the process exits.
 
 ---
 
 ## About Directory Structure and `npx`
 
-The command above **does not depend on any local `mongodb-mcp-server` directory**.
+The `npx` command  that starts the **MCP Inspector** above **does not depend on any local `mongodb-mcp-server` directory**.
 
 - `npx mongodb-mcp-server@latest` downloads and runs the server dynamically
 - The server does **not** need to exist anywhere in your filesystem
