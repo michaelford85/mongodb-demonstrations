@@ -81,6 +81,25 @@ MDB_MCP_VOYAGE_API_KEY=your_voyage_api_key
 
 # Require confirmation for write / destructive tools
 MDB_MCP_CONFIRMATION_REQUIRED_TOOLS=insert-many,update-many,delete-many,drop-collection,drop-database
+
+#Pymongo connection string
+MONGODB_URI="mongodb+srv://..."
+
+# Voyage
+VOYAGE_MODEL="voyage-4"
+VOYAGE_OUTPUT_DIM=1024
+
+# MongoDB Atlas Database Variables
+MEMORY_COLLECTION="agent_memory"
+
+#Atlas Vector Search Indexes
+COMMENTS_VECTOR_INDEX="comments_voyage_v4"
+MEMORY_VECTOR_INDEX="memory_voyage_v4"
+MOVIES_VECTOR_INDEX="movies_voyage_v4"
+
+
+# Embedding field name (your preference)
+EMBEDDING_FIELD="embedding_voyage_v4"
 ```
 
 ---
@@ -227,7 +246,7 @@ This demo emphasizes **agentic behavior**, specifically:
 
 1. Retrieve similar "cases" using semantic meaning (vector search)
 2. Validate hypotheses using MongoDB aggregations
-3. Persist conclusions into a dedicated memory collection (for example, `mcp_config.investigations`)
+3. Persist conclusions into a dedicated memory collection (for example, `mcp_config.agent_memory`)
 4. Recall and compare past investigations in follow-up interactions
 
 All memory writes are gated using MCP confirmation controls.
