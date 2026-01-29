@@ -25,6 +25,8 @@ The demo intentionally uses **public MongoDB sample datasets** (for example, `sa
   - Run ephemerally via `npx` (not cloned into this repo)
 - **MCP Inspector**
   - UI for inspecting tools, requests, and safety confirmations
+  - The available MongoDB MCP Server Tools are also listed in the documentation:
+    - [MongoDB MCP Server Tools](https://www.mongodb.com/docs/mcp-server/tools/#mongodb-mcp-server-tools)
 - **Python**
   - Local orchestration
   - Embedding backfill scripts

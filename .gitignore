@@ -3,3 +3,4 @@
 */.env
 */.env.vault
 */.env.me
+*.venv
