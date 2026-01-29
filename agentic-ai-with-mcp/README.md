@@ -20,25 +20,20 @@ The demo intentionally uses **public MongoDB sample datasets** (for example, `sa
   - System of record
   - Vector Search (Atlas Search)
   - Persistent agent memory
-
 - **mongodb-mcp-server**
   - Exposes MongoDB capabilities via MCP
   - Run ephemerally via `npx` (not cloned into this repo)
-
 - **MCP Inspector**
   - UI for inspecting tools, requests, and safety confirmations
-
 - **Python**
   - Local orchestration
   - Embedding backfill scripts
   - Demo utilities
-
 - **VoyageAI**
   - Vector embeddings (Voyage v4 family)
 
 > **Important:** `mongodb-mcp-server` is *not* vendored into this repository.  
 > It is launched ephemerally via `npx` during the demo.
-
 ---
 
 ## Prerequisites
@@ -64,14 +59,14 @@ mongodb-demonstrations/
     └── voyageai-vector-embeddings/
 ```
 
-This repository intentionally **does not** contain a copy of `mongodb-mcp-server`.
+This repository intentionally **does not** contain a copy of `mongodb-mcp-server`, but documentation for it can be found in its own [Github Repository](https://github.com/mongodb-js/mongodb-mcp-server).
 
 ---
 
 ## Environment Variables (`.env`)
 
 Create a `.env` file in this directory (`agentic-ai-with-mcp/`).  
-This file is intentionally **not committed to git**.
+This file is intentionally **not committed to git**, and is listed in .gitignore to prevent it from being accidentally committed.
 
 ```env
 # MongoDB Atlas API credentials
@@ -104,7 +99,12 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-The `requirements.txt` file is included in this repository and contains all required Python packages.
+The `requirements.txt` file is included in this repository and contains all required Python packages. These packages are used for:
+
+- `mcp[cli]`: MCP client utilities and CLI
+- `pymongo`: MongoDB access from Python
+- `voyageai`: Embedding backfill scripts
+- `python-dotenv`: Local orchestration and experimentation
 
 ---
 
