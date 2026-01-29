@@ -154,8 +154,14 @@ The **Proxy Session Token** should be auto-populated when the Inspector starts, 
 
 The screenshot below shows the required proxy configuration before clicking Connect:
 
-<img src="images/inspector_disconnected.png" alt="MCP Inspector proxy configuration" width="600" />
-
+<!-- <img src="images/inspector_disconnected.png" alt="MCP Inspector proxy configuration" width="600" /> -->
+<p align="center">
+  <img
+    src="images/inspector_disconnected.png"
+    alt="MCP Inspector proxy configuration"
+    width="600"
+  />
+</p>
 #### Available MongoDB MCP Tools
 
 Once connected, the Inspector exposes all MongoDB MCP tools made available
@@ -171,7 +177,14 @@ These tools allow an AI agent to:
 The screenshot below shows the full set of MongoDB MCP tools available
 in this demo environment:
 
-<img src="images/inspector_tools.png" alt="MongoDB MCP tools in Inspector" width="600" />
+<!-- <img src="images/inspector_tools.png" alt="MongoDB MCP tools in Inspector" width="600" /> -->
+<p align="center">
+  <img
+    src="images/inspector_tools.png"
+    alt="MongoDB MCP tools in Inspector"
+    width="700"
+  />
+</p>
 
 > The server runs from an ephemeral npm cache and is discarded when the process exits.
 
