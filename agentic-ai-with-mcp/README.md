@@ -308,6 +308,23 @@ That design makes it easy to verify:
 
 ---
 
+## Demonstration Cleanup
+
+Run the following python script to:
+- Load config from your local `.env` file
+- Drop Atlas Vector Search indexes:
+  - `COMMENTS_VECTOR_INDEX`
+  - `MEMORY_VECTOR_INDEX`
+  - `MOVIES_VECTOR_INDEX`
+- Unset the `EMBEDDING_FIELD` from `sample_mflix.comments` and `sample_mflix.movies`
+- Drops `MEMORY_DB` database (which also wipes the `MEMORY_COLLECTION` collection)
+
+```bash
+python 06_cleanup_mcp_demo.py
+```
+
+---
+
 ## Roadmap (future iterations)
 
 Planned upgrades after v1.0:

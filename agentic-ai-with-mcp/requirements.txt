@@ -2,3 +2,4 @@ mcp[cli]
 pymongo
 voyageai
 python-dotenv
+openai
