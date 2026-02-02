@@ -4,3 +4,4 @@
 */.env.vault
 */.env.me
 *.venv
+*.python-version

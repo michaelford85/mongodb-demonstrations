@@ -158,6 +158,7 @@ From the repo root (with your venv activated):
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -320,7 +321,7 @@ Run the following python script to:
 - Drops `MEMORY_DB` database (which also wipes the `MEMORY_COLLECTION` collection)
 
 ```bash
-python 06_cleanup_mcp_demo.py
+python voyageai-vector-embeddings/06_cleanup_mcp_demo.py
 ```
 
 ---
