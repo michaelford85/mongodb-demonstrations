@@ -101,14 +101,17 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5
 
 # --- VoyageAI (client-side embedding generation) ---
+MDB_MCP_VOYAGE_API_KEY=
 VOYAGE_API_KEY=...
 VOYAGE_MODEL=voyage-4
 VOYAGE_OUTPUT_DIM=1024
 
 # --- MongoDB MCP Server transport (HTTP) ---
+MDB_MCP_CONNECTION_STRING="mongodb+srv://<username>:<passwprd>@atlas-cluster.1ccqae.mongodb.net/?retryWrites=true&w=majority"
 MDB_MCP_TRANSPORT=http
 MDB_MCP_HTTP_PORT=3000
 MDB_MCP_SERVER_URL=http://127.0.0.1:3000/mcp
+MCP_STARTUP_WAIT_SECONDS=30
 
 # Enable Atlas Search / Vector Search tools in MCP (required)
 MDB_MCP_PREVIEW_FEATURES=search
@@ -118,14 +121,15 @@ MDB_MCP_PREVIEW_FEATURES=search
 MDB_MCP_VOYAGE_API_KEY=...
 
 # --- Demo config ---
-MEMORY_DB=mcp_config
-MEMORY_COLLECTION=agent_memory
-MOVIES_DB=sample_mflix
-MOVIES_COLLECTION=movies
+MEMORY_DB="mcp_config"
+MEMORY_COLLECTION="agent_memory"
+MOVIES_DB="sample_mflix"
+MOVIES_COLLECTION="movies"
 
 # Atlas Search / Vector Search index names
-MEMORY_VECTOR_INDEX=memory_voyage_v4
-MOVIES_VECTOR_INDEX=movies_voyage_v4
+COMMENTS_VECTOR_INDEX="comments_voyage_v4"
+MEMORY_VECTOR_INDEX="memory_voyage_v4"
+MOVIES_VECTOR_INDEX="movies_voyage_v4"
 
 # Embedding field name used in the collections + indexes
 EMBEDDING_FIELD=embedding_voyage_v4
@@ -224,6 +228,66 @@ curl -i http://127.0.0.1:3000/mcp
 ```
 
 > Note: `/mcp` is JSON‑RPC, so a plain GET won’t return “app data”. The important part is that the port is reachable and the client can initialize.
+
+---
+## Inspecting MCP Tool Usage with the MCP Inspector
+To better understand how the agent interacts with MongoDB via MCP tools, you can use the Model Context Protocol (MCP) Inspector. The Inspector provides a live view into:
+- Which MCP tools are available
+- Which tools are being called
+- The arguments passed to each tool
+- The raw responses returned by the MCP server
+- Timing and execution order of tool calls
+
+This is especially useful when developing or debugging agentic workflows, where decisions about when to query MongoDB (vector search, inserts, deletes, etc.) are made dynamically.
+
+### Starting the MCP Inspector
+
+With the MongoDB MCP Server already running (via the startup script), open a second terminal and run:
+
+```bash
+npx -y @modelcontextprotocol/inspector
+```
+
+The Inspector will start a local web UI and print a URL to the console (commonly something like http://127.0.0.1:6274). Open that URL in your browser.
+
+In the Inspector UI: 
+- Select Streamable HTTP
+   ```
+   http://127.0.0.1:3000/mcp
+   ```
+- Connection Type: Leave as Via Proxy (default)
+- COnfiguration:
+  - Inspector Proxy Address: `http://localhost:6277`
+  - Proxy Session Token: <Use the session token provided in the CLI as an output of the `npx` command that started the inspector>
+- Click Connect
+
+<p align="center">
+  <img src="images/inspector_disconnected.png" width="80%" alt="MCP Inspector – Disconnected State">
+</p>
+
+If successful, you should see:
+- The MongoDB MCP Server version
+- A populated Tools list
+- Live notifications when tools are called
+
+Once connected, the Inspector exposes all MCP tools provided by the MongoDB MCP Server, including:
+Core MongoDB Tools
+- `aggregate` – run aggregation pipelines (including $vectorSearch)
+- `count` – document counts
+- `collection-indexes` – list indexes for a collection
+- `collection-schema` – infer schema
+- `create-collection`
+- `insert-many`
+
+<p align="center">
+  <img src="images/inspector_tools.png" width="80%" alt="MCP Inspector – Tools View">
+</p>
+
+This allows you to:
+- Verify MongoDB behavior independently
+- Debug agent behavior with full visibility
+- Iterate on agentic routing safely and incrementally
+
 
 ---
 
