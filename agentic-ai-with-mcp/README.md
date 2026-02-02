@@ -1,128 +1,240 @@
 # Agentic AI with MCP + MongoDB (v1.0)
 
-This repository demonstrates a **demo‑grade agentic AI client** built on:
+This repository demonstrates a **demo-grade Agentic AI system** built on top of:
 
-- **OpenAI** – LLM reasoning and response synthesis  
-- **VoyageAI** – client‑side embedding generation  
-- **MongoDB Atlas** – vector search + persistent agent memory  
-- **MCP (Model Context Protocol)** – structured, inspectable tool invocation over HTTP  
+- **MongoDB Atlas** (memory, retrieval, grounding)
+- **Model Context Protocol (MCP)** (tool interface)
+- **OpenAI** (reasoning + language)
+- **VoyageAI** (embeddings)
 
-The emphasis of v1.0 is **clarity, determinism, and observability**.
-
----
-
-## What This Demo Shows
-
-### Deterministic Tool Usage
-The Python client decides *when* to call MCP tools based on user intent (keywords + routing logic), not LLM hallucination.
-
-Enable visibility with:
-```bash
-SHOW_TOOLS=1 SHOW_MEMORY=1 python demo_mcp_agent_http_simple.py
-```
+The goal of **v1.0** is to show—clearly, deterministically, and without magic—how **MongoDB can act as the long-term cognitive substrate for agentic AI systems**.
 
 ---
 
-### Persistent Agent Memory
-User preferences are embedded with VoyageAI and stored in MongoDB Atlas.
-They are retrieved via vector similarity and injected into the LLM prompt.
+## Versioning
+
+This release: `v1.0`
+
+## What This Demo Is (and Is Not)
+
+### ❌ This is NOT:
+- A black-box autonomous agent
+- Prompt-only “tool calling”
+- A hallucination-prone RAG demo
+- An LLM that pretends to have memory
+
+### ✅ This IS:
+- A **tool-first agent**
+- With **explicit routing logic**
+- Using **real vector search**
+- Where **MongoDB stores memory and facts**
+- And the **LLM only reasons over retrieved data**
 
 ---
 
-### Tool‑First, LLM‑Second
-The LLM never invents results.
-All recommendations come from MongoDB queries.
+## Why MongoDB for Agentic AI
+
+Agentic AI requires **persistent, queryable, evolvable state**.
+
+MongoDB is uniquely suited to fill this role.
 
 ---
 
-## Architecture
+### 1. MongoDB as Long-Term Agent Memory
 
-```
+The agent stores memory as documents in MongoDB:
+
+- User preferences
+- Learned constraints
+- Facts the agent should remember across turns
+
+Each memory:
+- Is embedded using **VoyageAI**
+- Stored in `mcp_config.agent_memory`
+- Indexed with **Atlas Vector Search**
+- Retrieved semantically (not via keywords)
+
+This allows the agent to remember **meaning**, not just strings.
+
+---
+
+### 2. MongoDB as the Agent’s World Model
+
+The agent does not “improvise” answers.
+
+Instead:
+- It queries MongoDB through MCP tools
+- MongoDB returns grounded results
+- The LLM explains *why* those results matter
+
+In this demo:
+- Movies come from `sample_mflix.movies`
+- Memory comes from `agent_memory`
+- The LLM never invents movie data
+
+MongoDB is the **source of truth**.
+
+---
+
+### 3. Deterministic, Inspectable Agent Behavior
+
+This demo intentionally avoids “LLM-decides-everything” routing.
+
+Instead:
+- The **Python client decides when tools are used**
+- Tool usage is **explicit and logged**
+- The LLM never silently calls tools
+
+This yields:
+- Predictable behavior
+- Lower token usage
+- Easier debugging
+- Production-friendly architecture
+
+---
+
+## Architecture Overview
+
 User
- └── Python Client
-      ├── VoyageAI (embeddings)
-      ├── MCP HTTP Client
-      │    └── MongoDB MCP Server
-      │         ├── movies vector search
-      │         └── agent_memory vector search
-      └── OpenAI (response synthesis)
-```
+└── Python Agent Client
+├── OpenAI (reasoning + explanation)
+├── VoyageAI (query + memory embeddings)
+├── MCP HTTP Client
+│    └── MongoDB MCP Server
+│         ├── Vector Search: movies
+│         └── Vector Search: agent_memory
+└── MongoDB Atlas
+
+**Key principle:**
+
+> MongoDB decides facts.  
+> The LLM explains them.
 
 ---
 
-## Setup
+## Key Technologies and Roles
 
-### Start MCP Server
-```bash
-./scripts/start_mcp_server.sh
-```
+### OpenAI (LLM)
+Used for:
+- Natural language understanding
+- Reasoning over retrieved data
+- Producing final user-facing answers
 
-### Run Demo
-```bash
-python demo_mcp_agent_http_simple.py
-```
-
-Optional debugging:
-```bash
-SHOW_TOOLS=1 SHOW_MEMORY=1 python demo_mcp_agent_http_simple.py
-```
+Not used for:
+- Memory storage
+- Search
+- Data authority
 
 ---
 
-## Environment Variables
+### VoyageAI (Embeddings)
+Used for:
+- Embedding user queries
+- Embedding agent memory
 
-```env
-OPENAI_API_KEY=...
-VOYAGE_API_KEY=...
-VOYAGE_MODEL=voyage-4
-VOYAGE_OUTPUT_DIM=1024
+Embeddings are:
+- Generated client-side
+- Stored explicitly
+- Queried via Atlas Vector Search
 
-MDB_MCP_TRANSPORT=http
-MDB_MCP_HTTP_PORT=3000
-MDB_MCP_SERVER_URL=http://127.0.0.1:3000/mcp
+---
+
+### MongoDB Atlas
+Provides:
+- Persistent agent memory
+- Vector similarity search
+- Schema flexibility for evolving agents
+- One system for short- and long-term state
+
+Collections used:
+- `sample_mflix.movies`
+- `mcp_config.agent_memory`
+
+---
+
+### Model Context Protocol (MCP)
+MCP provides:
+- A standardized tool interface
+- Clear separation between agent logic and data systems
+- Inspectable request/response boundaries
+
+This demo uses **MCP over HTTP JSON-RPC**.
+
+---
+
+## Demo Script
+
+Primary script:
 ```
+demo_mcp_agent_http_simple.py
+```
+
+Capabilities:
+- General Q&A via OpenAI
+- Persistent memory via MongoDB
+- Vector search over movies
+- Deterministic tool routing
+- Explicit memory clear/reset
 
 ---
 
 ## Commands
 
-```
-remember <text>
+remember    # store long-term memory (embedded + indexed)
+clear             # delete all agent memory
+exit              # quit
+
+Optional debugging flags:
+
+SHOW_TOOLS=1      # log MCP tool usage
+SHOW_MEMORY=1     # log retrieved memory
+
+## Example Demo Flow
+
+What is MCP?
+remember I like philosophical sci-fi with simulated reality themes.
+Recommend 5 movies I’d like.
+remember I dislike excessive gore.
+Recommend 6 movies grouped by vibe.
 clear
-exit
-```
+Recommend 5 movies again.
+
+You can observe:
+- When memory is written
+- When memory is retrieved
+- When vector search is invoked
+- How behavior changes when memory is cleared
 
 ---
 
-## Demo Flow
+## Why This Pattern Matters
 
-1. What is MCP?
-2. remember I like philosophical sci‑fi with simulated reality themes.
-3. Recommend 5 movies I’d like.
-4. remember I dislike excessive gore.
-5. Recommend 6 movies, grouped by vibe.
-6. clear
-7. Recommend 5 movies again.
+This repo demonstrates a **production-oriented agentic AI pattern**:
+
+| Concern | Responsibility |
+|------|--------------|
+| Memory | MongoDB |
+| Retrieval | MongoDB Vector Search |
+| Tooling | MCP |
+| Reasoning | LLM |
+| Control | Application code |
+
+This avoids:
+- Prompt bloat
+- Hidden agent state
+- Unbounded token growth
+- Tool hallucination
 
 ---
 
-## Roadmap
+## Roadmap (Future Versions)
 
-- Faster hybrid search
-- Token‑aware routing
-- Smarter agentic planning
+Planned enhancements:
+- LLM-assisted agent planning
+- Token-aware routing
+- Hybrid keyword + vector search
 - Multiple MCP servers
+- Faster retrieval paths
+- Smarter memory prioritization
 
 ---
-
-## Release
-
-```bash
-git tag v1.0
-git push origin v1.0
-```
-
----
-
-**Principle:**  
-The LLM explains results — it never decides what data to fetch.
