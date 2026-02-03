@@ -1,49 +1,47 @@
 # Agentic AI with MCP + MongoDB Atlas (v1.0)
 
-This repo is a **demo‑grade** (read: intentionally small + inspectable) reference for building an *agentic* app where:
+This repo is a **demonstration** reference for building an *agentic* app where:
 
-- **OpenAI** does **reasoning + response synthesis**
-- **MongoDB Atlas** is the **system of record** (documents), the **retrieval layer** (Vector Search), and the **memory store**
-- **MCP (Model Context Protocol)** is the **tool interface** that makes data access explicit, inspectable, and auditable
-- **VoyageAI** generates **embeddings** (both for backfilling datasets and for embedding “memory” at write time)
+- **OpenAI** does reasoning and response synthesis
+- **MongoDB Atlas** is the system of record (documents), the retrieval layer (Vector Search), and the memory store
+- **MCP (Model Context Protocol)** is the tool interface that makes data access explicit, inspectable, and auditable
+- **VoyageAI** generates embeddings (both for backfilling datasets and for embedding “memory” at write time)
 
-The philosophy for v1.0:
-
+The philosophy for this repository is:
 > **Tool‑first, LLM‑second.**  
 > The LLM should *explain* results, not silently decide what data to fetch or invent data it never retrieved.
 
 ---
 
-## What MongoDB brings to Agentic AI (in this demo)
+## What MongoDB brings to Agentic AI in this example
 
-### 1) A single “state layer” the agent can read and write
+### 1) A single state layer the agent can read and write
 Traditional RAG demos treat a database as a read‑only knowledge base. Here, MongoDB also holds **agent state**:
 
-- **`sample_mflix.movies`** and **`sample_mflix.comments`** are the agent’s “world knowledge” (sample datasets).
-- **`mcp_config.agent_memory`** is the agent’s **long‑term memory** (preferences, constraints, facts the user wants remembered).
+- **`sample_mflix.movies`** and **`sample_mflix.comments`** are the agent’s knowledgebase.
+- **`mcp_config.agent_memory`** is the agent’s long‑term memory, storing user preferences, constraints, facts the user wants remembered.
 
-This is how you get an agent that can keep context **across** questions without relying on the LLM’s transient chat history.
+This is how you get an agent that can keep context across questions without relying on the LLM’s transient chat history.
 
-### 2) Retrieval you can *measure*, not “vibes”
+### 2) Retrieval you can measure
 MongoDB Atlas Vector Search gives you:
 
-- deterministic retrieval pipelines (`$vectorSearch` + `$project`)
-- similarity scores you can log
-- index + embedding field constraints you can verify in Atlas UI
+- Deterministic retrieval pipelines (`$vectorSearch` + `$project`)
+- Similarity scores you can log
+- Index + embedding field constraints you can verify in Atlas UI
 
 That makes “agent correctness” something you can debug, not guess.
 
-### 3) A clean boundary between *thinking* and *doing*
-MCP turns “doing” into named tools with explicit inputs/outputs (e.g., `aggregate`, `insert-many`, `delete-many`).  
-That’s critical for:
+### 3) A clean boundary between thinking and doing
+The MongoDB Model Context Protocol Server turns doing into named tools with explicit inputs/outputs (e.g., `aggregate`, `insert-many`, `delete-many`). This is critical for:
 
-- debugging (“which tool did we call?”)
-- safety (“what write operations are allowed?”)
-- future multi‑tool routing (multiple MCP servers)
+- Debugging (“which tool did we call?”)
+- Safety (“what write operations are allowed?”)
+- Future multi‑tool routing (multiple MCP servers)
 
 ---
 
-## Architecture (v1.0)
+## Architecture
 
 ```text
 User
@@ -98,12 +96,12 @@ Create `agentic-ai-with-mcp/.env` (do **not** commit it). Example:
 ```env
 # --- OpenAI ---
 OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-5
+OPENAI_MODEL="gpt-5"
 
 # --- VoyageAI (client-side embedding generation) ---
 MDB_MCP_VOYAGE_API_KEY=
-VOYAGE_API_KEY=...
-VOYAGE_MODEL=voyage-4
+VOYAGE_API_KEY=
+VOYAGE_MODEL="voyage-4"
 VOYAGE_OUTPUT_DIM=1024
 
 # --- MongoDB MCP Server transport (HTTP) ---
@@ -132,7 +130,7 @@ MEMORY_VECTOR_INDEX="memory_voyage_v4"
 MOVIES_VECTOR_INDEX="movies_voyage_v4"
 
 # Embedding field name used in the collections + indexes
-EMBEDDING_FIELD=embedding_voyage_v4
+EMBEDDING_FIELD="embedding_voyage_v4"
 ```
 
 Optional debug toggles for the client (leave unset normally):
@@ -331,25 +329,28 @@ Inside the interactive prompt:
 Use these **in order** to prove each capability:
 
 ### A) Prove the LLM is working (no tools required)
+Start with some questions that will absolutely not be within the MongoDB knowledgebase:
 1. `What is MCP in the context of AI tooling? Explain in 2 sentences.`
+2. `What is the context behind famous TV line, there are four lights!` (If you know, you know)
+3. `Tell me about Evo Moment 37.` (an even deeper cut)
 
 ### B) Prove memory write → MongoDB (insert-many)
-2. `remember I like philosophical sci-fi with simulated reality themes.`
+4. `remember I like philosophical sci-fi with simulated reality themes.`
 
 ### C) Prove memory retrieval → prompt injection (vectorSearch over agent_memory)
-3. `What kind of movies do I like? Answer in 1 sentence.`  
+5. `What kind of movies do I like? Answer in 1 sentence.`  
    - With `SHOW_MEMORY=1`, you should see the retrieved memory snippet printed.
 
 ### D) Prove movie retrieval uses MongoDB Vector Search (aggregate + $vectorSearch)
-4. `Recommend 5 movies I'd like. Give title + genres + 1 sentence why.`
+6. `Recommend 5 movies I'd like. Give title + genres + 1 sentence why.`
 
 ### E) Prove memory changes the output (save another preference)
-5. `remember I dislike excessive gore and torture.`  
-6. `Recommend 5 movies I'd like. Avoid gore.`
+7. `remember I dislike excessive gore and torture.`  
+8. `Recommend 5 movies I'd like. Avoid gore.`
 
 ### F) Prove clear works (delete-many) and retrieval changes
-7. `clear`  
-8. `Recommend 5 movies I'd like.`  
+9. `clear`  
+10. `Recommend 5 movies I'd like.`  
    - With cleared memory, the response should lose those preference constraints.
 
 ---

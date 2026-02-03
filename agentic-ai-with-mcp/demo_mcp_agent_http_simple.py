@@ -25,7 +25,7 @@ Env (.env):
   MOVIES_DB=sample_mflix
   MOVIES_COLLECTION=movies
   MOVIES_VECTOR_INDEX=movies_voyage_v4
-  MOVIES_EMBED_FIELD=embedding_voyage_v4
+  EMBEDDING_FIELD=embedding_voyage_v4
 
   MEMORY_DB=mcp_config
   MEMORY_COLLECTION=agent_memory
@@ -210,7 +210,7 @@ def load_cfg() -> Cfg:
         movies_db=_env("MOVIES_DB", "sample_mflix") or "sample_mflix",
         movies_coll=_env("MOVIES_COLLECTION", "movies") or "movies",
         movies_index=_env("MOVIES_VECTOR_INDEX", "movies_voyage_v4") or "movies_voyage_v4",
-        movies_embed=_env("MOVIES_EMBED_FIELD", "embedding_voyage_v4") or "embedding_voyage_v4",
+        movies_embed=_env("EMBEDDING_FIELD", "embedding_voyage_v4") or "embedding_voyage_v4",
         mem_db=_env("MEMORY_DB", "mcp_config") or "mcp_config",
         mem_coll=_env("MEMORY_COLLECTION", "agent_memory") or "agent_memory",
         mem_index=_env("MEMORY_VECTOR_INDEX", "memory_voyage_v4") or "memory_voyage_v4",
