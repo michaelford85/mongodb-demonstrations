@@ -1,10 +1,10 @@
 # Atlas Trigger Cluster Scaling Demo
 
-This repository demonstrates one practical pattern for scheduled Atlas cluster scaling:
+This repository demonstrates practical patterns for scheduled Atlas cluster scaling:
 
 1. Use **MongoDB Atlas Scheduled Triggers** with **CRON** for calendar-based scheduling (for example, specific days of the month).
-2. Have each trigger call a webhook endpoint.
-3. Run Python scripts behind those webhook endpoints to scale a cluster up or down via the Atlas Admin API.
+2. Run trigger functions that call the Atlas Admin API directly to scale a cluster up or down.
+3. Optionally use Python scripts in this repo when you want an external runtime pattern.
 
 This is useful for prospects that need temporary capacity windows (billing cycles, monthly batch jobs, launch events) and want to automatically scale back down afterward.
 
@@ -65,13 +65,13 @@ Scale down:
 python scripts/scale_down_trigger.py
 ```
 
-## Atlas Trigger Design
+## Atlas Trigger Design (Direct, No Webhook)
 
-Atlas Scheduled Triggers run JavaScript functions. A common architecture is:
+Atlas Scheduled Triggers run JavaScript functions. In this pattern:
 
 - **Scheduled Trigger (CRON)**
-- Atlas Function performs an HTTP call to your Python webhook
-- Python script updates cluster tier through Atlas Admin API
+- Atlas Function calls the Atlas Admin API directly
+- Cluster tier is set from Atlas Values/Secrets
 
 ### Example CRON Schedules
 
@@ -84,14 +84,28 @@ Use this as the trigger function body in Atlas App Services:
 
 ```javascript
 exports = async function() {
-  const response = await context.http.post({
-    url: context.values.get("SCALE_UP_WEBHOOK_URL"),
-    headers: { "Content-Type": ["application/json"] },
-    body: JSON.stringify({ source: "atlas-scheduled-trigger", action: "scale-up" })
+  const projectId = context.values.get("ATLAS_PROJECT_ID");
+  const clusterName = context.values.get("ATLAS_CLUSTER_NAME");
+  const targetTier = context.values.get("SCALE_UP_TIER");
+  const token = context.values.get("ATLAS_ADMIN_API_TOKEN");
+  const baseUrl = context.values.get("ATLAS_BASE_URL") || "https://cloud.mongodb.com/api/atlas/v2";
+
+  const response = await context.http.patch({
+    url: `${baseUrl}/groups/${projectId}/clusters/${clusterName}`,
+    headers: {
+      Authorization: [`Bearer ${token}`],
+      "Content-Type": ["application/json"],
+      Accept: ["application/vnd.atlas.2024-08-05+json"]
+    },
+    body: JSON.stringify({
+      providerSettings: {
+        instanceSizeName: targetTier
+      }
+    })
   });
 
-  if (response.statusCode >= 300) {
-    throw new Error(`Scale-up webhook failed: ${response.statusCode}`);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(`Scale-up failed: ${response.statusCode} ${response.body.text()}`);
   }
 };
 ```
@@ -100,19 +114,40 @@ exports = async function() {
 
 ```javascript
 exports = async function() {
-  const response = await context.http.post({
-    url: context.values.get("SCALE_DOWN_WEBHOOK_URL"),
-    headers: { "Content-Type": ["application/json"] },
-    body: JSON.stringify({ source: "atlas-scheduled-trigger", action: "scale-down" })
+  const projectId = context.values.get("ATLAS_PROJECT_ID");
+  const clusterName = context.values.get("ATLAS_CLUSTER_NAME");
+  const targetTier = context.values.get("SCALE_DOWN_TIER");
+  const token = context.values.get("ATLAS_ADMIN_API_TOKEN");
+  const baseUrl = context.values.get("ATLAS_BASE_URL") || "https://cloud.mongodb.com/api/atlas/v2";
+
+  const response = await context.http.patch({
+    url: `${baseUrl}/groups/${projectId}/clusters/${clusterName}`,
+    headers: {
+      Authorization: [`Bearer ${token}`],
+      "Content-Type": ["application/json"],
+      Accept: ["application/vnd.atlas.2024-08-05+json"]
+    },
+    body: JSON.stringify({
+      providerSettings: {
+        instanceSizeName: targetTier
+      }
+    })
   });
 
-  if (response.statusCode >= 300) {
-    throw new Error(`Scale-down webhook failed: ${response.statusCode}`);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(`Scale-down failed: ${response.statusCode} ${response.body.text()}`);
   }
 };
 ```
 
-Store webhook URLs as Atlas Values/Secrets (`SCALE_UP_WEBHOOK_URL`, `SCALE_DOWN_WEBHOOK_URL`).
+Store these in Atlas Values/Secrets:
+
+- `ATLAS_PROJECT_ID`
+- `ATLAS_CLUSTER_NAME`
+- `SCALE_UP_TIER`
+- `SCALE_DOWN_TIER`
+- `ATLAS_ADMIN_API_TOKEN` (secret)
+- `ATLAS_BASE_URL` (optional, default shown above)
 
 ## API Behavior Notes
 
@@ -123,8 +158,8 @@ Store webhook URLs as Atlas Values/Secrets (`SCALE_UP_WEBHOOK_URL`, `SCALE_DOWN_
 ## Security Notes
 
 - Never hardcode API keys in source code.
-- Use least-privilege API keys.
-- Restrict webhook access (shared secret, IP allowlist, IAM, etc.).
+- Use least-privilege service account/token scopes.
+- Keep `ATLAS_ADMIN_API_TOKEN` in Atlas Secrets.
 
 ## Demo Flow
 
@@ -133,4 +168,3 @@ Store webhook URLs as Atlas Values/Secrets (`SCALE_UP_WEBHOOK_URL`, `SCALE_DOWN_
 3. Trigger scale-up for known peak window dates.
 4. Trigger scale-down after the window.
 5. Observe tier changes in Atlas UI and correlate with workload/latency metrics.
-
