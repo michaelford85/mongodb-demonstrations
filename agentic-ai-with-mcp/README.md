@@ -56,6 +56,66 @@ User
                  └── delete-many (clear memory)
 ```
 
+### Data Flow — MongoDB as the Operational Data Layer
+
+The diagram below shows how MongoDB serves as the single operational layer for the agent: it stores and retrieves long-term memory (read + write) **and** provides the semantic knowledge base for RAG (read-only vector search). Depending on the query, the agent takes one of two paths — RAG-augmented or pure LLM — before OpenAI synthesises the final response.
+
+```mermaid
+flowchart TD
+    User(["👤 User"])
+
+    subgraph AgentClient["MCP Agent Client  ·  demo_mcp_agent_http_simple.py"]
+        Router{{"Query\nRouter"}}
+        Voyage["VoyageAI\nEmbeddings"]
+        OpenAI["OpenAI GPT\nResponse Synthesis"]
+    end
+
+    subgraph MCPLayer["MongoDB MCP Server  ·  HTTP :3000"]
+        MCPTools["MCP Tools\naggregate  ·  insert-many  ·  delete-many"]
+    end
+
+    subgraph Atlas["MongoDB Atlas  —  Operational Data Layer"]
+        subgraph KB["Knowledge Base  ·  read-only RAG"]
+            Movies[("sample_mflix.movies\nindex: movies_voyage_v4")]
+            Comments[("sample_mflix.comments\nindex: comments_voyage_v4")]
+        end
+        subgraph Mem["Agent Memory  ·  read + write"]
+            AgentMem[("mcp_config.agent_memory\nindex: memory_voyage_v4")]
+        end
+    end
+
+    User -->|"query / remember / clear"| Router
+
+    Router -- "① Pure LLM path\ngeneral knowledge, no retrieval" --> OpenAI
+
+    Router -- "② RAG path\nembed query or remember text" --> Voyage
+    Voyage -- "queryVector / embedding" --> MCPTools
+
+    MCPTools -- "vectorSearch  →  movies" --> Movies
+    MCPTools -- "vectorSearch  →  recall" --> AgentMem
+    MCPTools -- "insert-many  →  save" --> AgentMem
+    MCPTools -- "delete-many  →  clear" --> AgentMem
+
+    Movies -- "top-k docs" --> MCPTools
+    AgentMem -- "top-k snippets" --> MCPTools
+
+    MCPTools -- "context injected into prompt" --> OpenAI
+    OpenAI -- "final response" --> User
+
+    style Atlas fill:#023430,color:#fff,stroke:#00ED64
+    style KB fill:#035C4A,color:#fff,stroke:#00ED64
+    style Mem fill:#035C4A,color:#fff,stroke:#00ED64
+    style Movies fill:#1a3a2a,color:#fff,stroke:#00ED64
+    style Comments fill:#1a3a2a,color:#fff,stroke:#00ED64
+    style AgentMem fill:#1a3a2a,color:#fff,stroke:#00ED64
+```
+
+**Path ① — Pure LLM:** General knowledge questions (e.g. "What is MCP?") bypass MongoDB entirely. The query router detects no retrieval is needed and sends the question straight to OpenAI.
+
+**Path ② — RAG-augmented:** Movie recommendations and preference questions embed the query via VoyageAI, then call the MCP Server which runs `$vectorSearch` aggregation pipelines against MongoDB. Retrieved documents are injected into the OpenAI prompt before synthesis.
+
+**Memory (read + write):** `remember <text>` embeds the text via VoyageAI and persists it to `mcp_config.agent_memory` via `insert-many`. Every subsequent query also vector-searches that collection so past preferences shape every answer. `clear` issues a `delete-many` to wipe memory.
+
 ---
 
 ## Repository layout (expected)
