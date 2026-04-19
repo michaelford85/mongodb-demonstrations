@@ -23,7 +23,7 @@ import datetime
 from pymongo import MongoClient, ReadPreference
 from pymongo.read_concern import ReadConcern
 from pymongo.write_concern import WriteConcern
-from pymongo.errors import OperationFailure
+from pymongo.errors import OperationFailure, NotPrimaryError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -131,9 +131,9 @@ def main():
         )
         list(coll_sec.find({"_id": doc_id}))
         print("  No error raised — cluster may have routed back to primary.")
-    except OperationFailure as e:
-        print(f"  OperationFailure raised as expected:")
-        print(f"  {e}")
+    except (OperationFailure, NotPrimaryError) as e:
+        print(f"  {type(e).__name__} raised as expected:")
+        print(f"  {e.details.get('errmsg', str(e))}")
         print()
         print("  This confirms linearizable enforces primary-only reads.")
 

@@ -118,7 +118,7 @@ Write with w=1           →  a secondary read with "local" concern may lag behi
 python3 read_concern_demo.py
 ```
 
-The script writes a known document with `w="majority"`, then reads it back at each concern level from the primary, printing timing for each. It also verifies that `linearizable` is rejected when directed at a secondary — confirming the constraint is enforced.
+The script writes a known document with `w="majority"`, then reads it back at each concern level from the primary, printing timing for each. It also verifies that `linearizable` is rejected when directed at a secondary — the server raises a `NotPrimaryError` (distinct from `OperationFailure`; it inherits from `ConnectionFailure`), confirming the constraint is enforced at the server level. Handle this in application code accordingly.
 
 ---
 
