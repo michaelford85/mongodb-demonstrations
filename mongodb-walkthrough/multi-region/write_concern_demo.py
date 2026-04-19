@@ -67,8 +67,13 @@ def main():
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10_000)
     db = client[DB_NAME]
 
+    # Force topology discovery and warm the connection pool before benchmarking.
+    # Without this, the first operation pays for DNS resolution, TLS handshake,
+    # and authentication — skewing its latency against the other levels.
+    client.admin.command("ping")
+
     print("=== Write Concern Demo ===")
-    print(f"Primary  : {client.primary}")
+    print(f"Primary    : {client.primary}")
     print(f"Secondaries: {client.secondaries}")
 
     results = []
@@ -78,7 +83,7 @@ def main():
         print(f"  {explanation}\n")
 
         coll = db[TEST_COLLECTION].with_options(write_concern=wc)
-        doc = {"concern": label, "ts": datetime.datetime.utcnow()}
+        doc = {"concern": label, "ts": datetime.datetime.now(datetime.UTC)}
 
         try:
             start = time.time()

@@ -83,6 +83,9 @@ def run_query(collection, pref_name):
 def main():
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10_000)
 
+    # Force topology discovery before inspecting primary/secondaries or benchmarking.
+    client.admin.command("ping")
+
     primary = client.primary
     secondaries = client.secondaries
 
