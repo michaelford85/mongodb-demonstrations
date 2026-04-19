@@ -76,6 +76,9 @@ def main():
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10_000)
     db = client[DB_NAME]
 
+    # Warm the connection pool so topology is discovered before benchmarking.
+    client.admin.command("ping")
+
     print("=== Read Concern Demo ===")
     print(f"Primary  : {client.primary}")
 
@@ -84,7 +87,7 @@ def main():
     write_coll = db[TEST_COLLECTION].with_options(
         write_concern=WriteConcern(w="majority")
     )
-    doc = {"demo": "read_concern", "ts": datetime.datetime.utcnow()}
+    doc = {"demo": "read_concern", "ts": datetime.datetime.now(datetime.UTC)}
     result = write_coll.insert_one(doc)
     doc_id = result.inserted_id
     print(f"  Inserted document _id={doc_id}")
