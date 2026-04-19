@@ -1,0 +1,6 @@
+.env
+.resume_token
+__pycache__/
+*.pyc
+.python-version
+.venv/
