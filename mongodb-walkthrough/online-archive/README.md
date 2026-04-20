@@ -54,6 +54,15 @@ year  (order 0)  →  title  (order 1)
 
 Partition fields function as the index for the cold tier. When the federated endpoint receives a query that filters on `year`, Atlas can skip every partition whose year range does not overlap the filter — it reads only the relevant objects from cloud storage rather than scanning everything. Without well-chosen partition fields every query against cold data would scan the full archive.
 
+For example, suppose you are configuring the online archive for the movies collection in the `sample_mflix` database. If your archived field is the `year` date field, which you moved to the third position, your first queried field is `title`, and your second queried field is `plot`, your partition will look similar to the following:
+```
+/title/plot/year
+```
+Atlas creates partitions first for the `title` field, followed by the `plot` field, and then the `year` field. Atlas uses the partitions for queries on the following fields:
+- the title field,
+- the title field and the plot field,
+- the title field and the plot field and the released field.
+
 **Guidance for choosing partition fields:**
 
 | Consideration | Recommendation |
