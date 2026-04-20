@@ -147,7 +147,7 @@ The demo runs four sections:
 Lists all three tenant databases, showing that each has a `movies` collection and a `config` collection. The same collection name exists in every tenant — the data is different, not the structure.
 
 ### Section 2 — Data isolation
-Searches for three well-known titles (one per era) across all three tenant databases. Each title appears in exactly one tenant; the other two return zero results — not because of a query filter but because the document is simply not in that namespace.
+The same `find_one` query is run against all three tenant databases using admin credentials — nothing prevents the reads. Each title exists in exactly one namespace because that is where the data lives, not because a filter excludes it. The explicit query string is printed before each result block so the audience can see exactly what is being executed.
 
 | Title | Year | Expected tenant |
 |---|---|---|
@@ -156,12 +156,20 @@ Searches for three well-known titles (one per era) across all three tenant datab
 | The Dark Knight | 2008 | `modernplex` |
 
 ### Section 3 — RBAC isolation
-Connects as `classicflix_app` (a user authorized only on `classicflix`) and attempts to read `modernplex.movies`. Atlas rejects the read with an `OperationFailure` before any data is accessed.
+Uses `classicflix_app` for two back-to-back queries to contrast authorised and unauthorised access:
+
+1. **Authorised read** — queries `classicflix.movies` successfully, confirming the credential works
+2. **Cross-tenant attempt** — queries `modernplex.movies` with the same credential; Atlas raises `OperationFailure` before any data is accessed
+
+The error message is printed in cleaned-up form (internal fields like `lsid` and `$clusterTime` are stripped) so the meaningful authorization message is clear.
 
 > Requires `CLASSICFLIX_PASSWORD`, `MILLENNIUMSTREAM_PASSWORD`, and `MODERNPLEX_PASSWORD` to be set in `.env`. If any are missing this section is skipped with an explanation.
 
 ### Section 4 — Connection routing pattern
 Shows how an application derives the correct database name from a tenant identifier (JWT claim, subdomain, API key lookup) and routes with `client[db_name]`.
+
+### Section 5 — Two-layer isolation model
+Prints a summary table distinguishing the two isolation layers and what each one does when a wrong-tenant read is attempted — a concrete takeaway for the audience.
 
 ---
 
