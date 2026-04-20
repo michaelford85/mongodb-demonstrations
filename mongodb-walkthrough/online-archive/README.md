@@ -27,13 +27,52 @@ The archive rule in this demo targets the `year` field in `sample_mflix.movies`.
 
 ---
 
+## Indexing and query performance
+
+Indexes matter at both storage tiers, but in different ways.
+
+### Hot tier — standard MongoDB index
+
+`setup_archive.py` creates an index on `year` before configuring the archive rule:
+
+```python
+coll.create_index([("year", ASCENDING)], name="year_1")
+```
+
+This index serves two purposes:
+
+1. **Archive daemon efficiency** — when Atlas runs its daily archive job it evaluates the CUSTOM criteria query (`year < 2001`) against every document in the collection. Without an index this is a full collection scan on every run. With the index, Atlas can jump directly to the matching range.
+2. **Hot-tier query performance** — after archiving, the live cluster holds only recent documents (`year >= 2001`). Queries that filter on `year` (the common case) use the same index rather than scanning the remaining documents.
+
+### Cold tier — partition fields as an index
+
+When documents are moved to cloud object storage they are organised into *partitions* according to the `partitionFields` defined in the archive rule. This demo uses:
+
+```
+year  (order 0)  →  title  (order 1)
+```
+
+Partition fields function as the index for the cold tier. When the federated endpoint receives a query that filters on `year`, Atlas can skip every partition whose year range does not overlap the filter — it reads only the relevant objects from cloud storage rather than scanning everything. Without well-chosen partition fields every query against cold data would scan the full archive.
+
+**Guidance for choosing partition fields:**
+
+| Consideration | Recommendation |
+|---|---|
+| Field used most often in filters | Put it first (coarsest partition boundary) |
+| High-cardinality field | Good for partitioning — creates smaller, targeted partitions |
+| Field used in range queries | Works well as a partition key |
+| Maximum partition fields | 2–3; beyond that partitions become too granular to help |
+
+---
+
 ## Files
 
 | File | Purpose |
 |---|---|
-| `setup_archive.py` | Creates the archive rule via the Atlas Admin API. Run once. |
+| `setup_archive.py` | Creates the index and archive rule via the Atlas Admin API. Run once. |
 | `query_demo.py` | Runs timed queries against the live cluster and the federated endpoint. |
-| `teardown_archive.py` | Deletes an archive rule and its federated instance. |
+| `title_lookup.py` | Looks up a specific movie by title on both endpoints to show which tier it lives on. |
+| `teardown_archive.py` | Optionally rehydrates archived data, then deletes the archive rule. |
 | `.env.example` | Environment variable template. |
 | `requirements.txt` | Python dependencies. |
 
@@ -65,17 +104,17 @@ ARCHIVE_CLOUD_PROVIDER=AWS
 ARCHIVE_REGION=US_EAST_1
 ```
 
-`FEDERATED_URI` is only needed for the second script and can be added later.
+`FEDERATED_URI` is only needed for the query scripts and can be added later.
 
 ---
 
-## Step 1 — Configure the archive rule
+## Step 1 — Configure the index and archive rule
 
 ```bash
 python3 setup_archive.py
 ```
 
-This calls the Atlas Admin API to create a CUSTOM-based archive rule on the `year` field (`year < ARCHIVE_CUTOFF_YEAR`). The script is idempotent — re-running it reports the existing rule rather than creating a duplicate.
+The script first creates an index on `year` (see [Indexing and query performance](#indexing-and-query-performance) above), then calls the Atlas Admin API to create a CUSTOM-based archive rule. The script is idempotent — re-running it reports the existing rule rather than creating a duplicate.
 
 Atlas archives data on a **daily schedule**. After the rule is created, wait for the first archive run before proceeding. Progress is visible in Atlas UI → **Online Archive** (the rule card shows Last Archive Run and Total Data Archived).
 
@@ -115,11 +154,33 @@ The script runs three queries twice — once against each connection string:
 
 ---
 
+## Step 4 — Look up a specific title (optional)
+
+```bash
+python3 title_lookup.py "The Matrix"      # archived — year 1999
+python3 title_lookup.py "Curious George"  # live — year 2006
+python3 title_lookup.py                   # prompts for a title
+```
+
+The script searches both endpoints and labels each result `hot (live)` or `cold (archived)`, making it easy to show during a demo exactly which tier a named document lives on.
+
+---
+
 ## Teardown
 
 ```bash
 python3 teardown_archive.py
 ```
+
+The script will ask whether you want to **rehydrate** — restore archived documents back to the live cluster — before deleting the archive rule. If `MONGODB_URI` and `FEDERATED_URI` are both set in `.env`, rehydration is available:
+
+```
+Restore archived documents back to the live cluster before deleting? [y/N]:
+```
+
+Rehydration reads all documents matching the archive criteria from the federated endpoint and inserts them back into the live cluster in batches. It skips any document that already exists on the live cluster (duplicate key errors are handled gracefully).
+
+> **Important:** deleting the archive rule also removes the associated Data Federation endpoint. Any data remaining in cloud object storage is **permanently deleted** and cannot be recovered. Rehydrate first if you need the data back on the live cluster.
 
 If only one archive rule exists on the cluster it will be identified automatically. If multiple exist (e.g. from a previous failed run), the script lists them and exits — set `ARCHIVE_ID` in your `.env` to the target ID and re-run:
 
@@ -128,8 +189,6 @@ If only one archive rule exists on the cluster it will be identified automatical
 python3 teardown_archive.py path/to/other.env
 ```
 
-Deleting the archive rule also removes the federated endpoint and all data in cloud object storage.
-
 ---
 
 ## Key talking points
@@ -137,5 +196,6 @@ Deleting the archive rule also removes the federated endpoint and all data in cl
 - The application does not need to know which tier a document lives on — the federated endpoint handles routing
 - Archived data is still fully queryable; the latency trade-off (2–4 s) is acceptable for infrequently accessed historical records
 - Storage cost for the cold tier is significantly lower than keeping all data on a live cluster
-- The archive rule can be paused, modified, or deleted at any time; archived data can be restored
+- The archive rule can be paused, modified, or deleted at any time; archived data can be restored to the live cluster before teardown
+- **Indexes matter on both tiers, but work differently:** a standard MongoDB index on the archive field helps the archive daemon and speeds hot-tier queries; partition fields in the archive rule act as the index for cold storage, letting the federated endpoint skip irrelevant partitions rather than scanning the full archive
 - **Schema flexibility requires query awareness:** a small number of documents in `sample_mflix.movies` store `year` as a malformed string (`"1981è"`, `"1994è1998"`) rather than an integer. MongoDB's BSON comparison ordering places all strings after all numbers, so a purely numeric `$lt` filter silently skips those documents — they stay on the hot tier even though they predate the cutoff. The archive query handles this with an `$or` that also matches string-typed `year` values. This is a useful contrast with relational databases, where a typed column prevents mixed types entirely — in MongoDB, heterogeneous field types are valid and the query layer must account for them. Schema validation (`$jsonSchema`) can enforce a single type going forward.
