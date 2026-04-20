@@ -1,6 +1,14 @@
 """
 Deletes an Atlas Online Archive rule and its associated federated instance.
 
+Rehydration (optional but recommended):
+  Before deleting the archive, the script can restore archived documents back
+  to the live cluster.  It reads from the federated endpoint (FEDERATED_URI),
+  filters for documents that match the archive criteria, and inserts them into
+  the live cluster (MONGODB_URI) in batches.  Deleting the archive without
+  rehydrating first permanently removes the archived data from cloud object
+  storage — it cannot be recovered afterwards.
+
 Usage:
   python3 teardown_archive.py              # loads .env from current directory
   python3 teardown_archive.py my.env       # loads a specific env file
@@ -16,6 +24,8 @@ Which archive gets deleted:
 import os
 import sys
 import requests
+from pymongo import MongoClient
+from pymongo.errors import BulkWriteError
 from requests.auth import HTTPDigestAuth
 from dotenv import load_dotenv
 
@@ -27,17 +37,32 @@ if not os.path.exists(env_file):
 
 load_dotenv(env_file, override=True)
 
-PUBLIC_KEY  = os.environ["ATLAS_PUBLIC_KEY"]
-PRIVATE_KEY = os.environ["ATLAS_PRIVATE_KEY"]
-PROJECT_ID  = os.environ["ATLAS_PROJECT_ID"]
-CLUSTER_NAME = os.environ["CLUSTER_NAME"]
-ARCHIVE_ID  = os.environ.get("ARCHIVE_ID", "")
+PUBLIC_KEY    = os.environ["ATLAS_PUBLIC_KEY"]
+PRIVATE_KEY   = os.environ["ATLAS_PRIVATE_KEY"]
+PROJECT_ID    = os.environ["ATLAS_PROJECT_ID"]
+CLUSTER_NAME  = os.environ["CLUSTER_NAME"]
+ARCHIVE_ID    = os.environ.get("ARCHIVE_ID", "")
+MONGODB_URI   = os.environ.get("MONGODB_URI", "")
+FEDERATED_URI = os.environ.get("FEDERATED_URI", "")
+DB_NAME       = os.environ.get("DB_NAME", "sample_mflix")
+COLLECTION_NAME = os.environ.get("COLLECTION_NAME", "movies")
+CUTOFF_YEAR   = int(os.environ.get("ARCHIVE_CUTOFF_YEAR", "2001"))
 
 BASE_URL = "https://cloud.mongodb.com/api/atlas/v2"
 AUTH     = HTTPDigestAuth(PUBLIC_KEY, PRIVATE_KEY)
 HEADERS  = {
     "Content-Type": "application/json",
     "Accept": "application/vnd.atlas.2023-01-01+json",
+}
+
+BATCH_SIZE = 500
+
+# Archive criteria — must match what setup_archive.py used.
+ARCHIVE_QUERY = {
+    "$or": [
+        {"year": {"$lt": CUTOFF_YEAR}},
+        {"year": {"$type": "string"}},
+    ]
 }
 
 
@@ -58,11 +83,94 @@ def delete_archive(archive_id):
 
 def print_archive(a, index=None):
     prefix = f"  [{index}]" if index is not None else "  "
+    criteria = a.get("criteria", {})
+    ctype = criteria.get("type", "unknown")
+    if ctype == "CUSTOM":
+        criteria_str = f"CUSTOM  query={criteria.get('query', '')}"
+    elif ctype == "DATE":
+        criteria_str = (
+            f"DATE  field={criteria.get('dateField')}  "
+            f"expireAfterDays={criteria.get('expireAfterDays')}"
+        )
+    else:
+        criteria_str = str(criteria)
     print(f"{prefix} ID       : {a['_id']}")
     print(f"      State    : {a.get('state', 'unknown')}")
     print(f"      DB/Coll  : {a.get('dbName')}.{a.get('collName')}")
-    criteria = a.get("criteria", {})
-    print(f"      Field    : {criteria.get('dateField')} older than {criteria.get('expireAfterDays')} days")
+    print(f"      Criteria : {criteria_str}")
+
+
+def rehydrate():
+    """
+    Restore archived documents from the federated endpoint back to the live
+    cluster.  Returns True if rehydration ran (even if 0 documents were found),
+    False if it was skipped due to missing config.
+    """
+    if not FEDERATED_URI:
+        print("  FEDERATED_URI not set — cannot rehydrate.")
+        print("  Add FEDERATED_URI to your .env and re-run if you want to restore data first.")
+        return False
+    if not MONGODB_URI:
+        print("  MONGODB_URI not set — cannot rehydrate.")
+        return False
+
+    print("  Connecting to federated endpoint to count archived documents...")
+    try:
+        fed_client = MongoClient(FEDERATED_URI, serverSelectionTimeoutMS=30_000)
+        fed_client.admin.command("ping")
+        fed_coll = fed_client[DB_NAME][COLLECTION_NAME]
+
+        total = fed_coll.count_documents(ARCHIVE_QUERY)
+        print(f"  Archived documents found : {total:,}")
+
+        if total == 0:
+            print("  Nothing to restore.")
+            fed_client.close()
+            return True
+
+        live_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10_000)
+        live_coll = live_client[DB_NAME][COLLECTION_NAME]
+
+        print(f"  Restoring in batches of {BATCH_SIZE}...")
+        cursor = fed_coll.find(ARCHIVE_QUERY)
+        batch = []
+        restored = 0
+        duplicates = 0
+
+        for doc in cursor:
+            batch.append(doc)
+            if len(batch) >= BATCH_SIZE:
+                try:
+                    live_coll.insert_many(batch, ordered=False)
+                    restored += len(batch)
+                except BulkWriteError as e:
+                    inserted = e.details.get("nInserted", 0)
+                    restored += inserted
+                    duplicates += len(batch) - inserted
+                batch = []
+                print(f"  Progress : {restored:,} restored, {duplicates:,} already present...")
+
+        if batch:
+            try:
+                live_coll.insert_many(batch, ordered=False)
+                restored += len(batch)
+            except BulkWriteError as e:
+                inserted = e.details.get("nInserted", 0)
+                restored += inserted
+                duplicates += len(batch) - inserted
+
+        print(f"\n  Rehydration complete.")
+        print(f"    Restored  : {restored:,} documents")
+        if duplicates:
+            print(f"    Skipped   : {duplicates:,} documents already on live cluster")
+
+        fed_client.close()
+        live_client.close()
+        return True
+
+    except Exception as e:
+        print(f"  Rehydration failed: {e}")
+        return False
 
 
 def main():
@@ -101,14 +209,34 @@ def main():
             print()
         sys.exit(1)
 
-    # ── Confirm and delete ──────────────────────────────────────────
+    # ── Show what will be deleted ───────────────────────────────────
     print("Archive to be deleted:")
     print_archive(target)
     print()
-    print("WARNING: This also removes the associated Data Federation endpoint.")
-    print("         Archived data in cloud object storage will be permanently deleted.")
+    print("WARNING: Deleting this archive also removes the associated Data Federation")
+    print("         endpoint. Any data still in cloud object storage will be permanently")
+    print("         deleted and cannot be recovered.")
     print()
 
+    # ── Offer rehydration before deletion ──────────────────────────
+    if FEDERATED_URI and MONGODB_URI:
+        answer = input("Restore archived documents back to the live cluster before deleting? [y/N]: ").strip().lower()
+        if answer == "y":
+            print()
+            rehydrate()
+            print()
+        else:
+            print("Skipping rehydration — archived data will be permanently deleted.\n")
+    else:
+        missing = []
+        if not MONGODB_URI:
+            missing.append("MONGODB_URI")
+        if not FEDERATED_URI:
+            missing.append("FEDERATED_URI")
+        print(f"Note: {' and '.join(missing)} not set — rehydration unavailable.")
+        print("      Archived data will be permanently deleted on teardown.\n")
+
+    # ── Confirm and delete ──────────────────────────────────────────
     confirm = input(f"Type the archive ID to confirm deletion: ").strip()
     if confirm != target["_id"]:
         print("ID did not match. Aborting.")

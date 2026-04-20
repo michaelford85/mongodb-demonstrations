@@ -8,12 +8,20 @@ which is absent on a subset of documents.
 Movies with year < ARCHIVE_CUTOFF_YEAR are archived to cold storage on Atlas's
 daily schedule. This script creates that rule via the Atlas Admin API.
 
+Before creating the archive rule the script creates an index on the 'year'
+field. This index serves two purposes:
+  1. The Atlas archive daemon uses it to efficiently identify documents that
+     match the archive criteria without scanning the entire collection.
+  2. Queries against the live (hot) tier after archiving — e.g. year >= 2001 —
+     use the same index, keeping hot-tier reads fast.
+
 Run once. Re-running safely detects and reports an existing rule.
 """
 
 import json
 import os
 import requests
+from pymongo import MongoClient, ASCENDING
 from requests.auth import HTTPDigestAuth
 from dotenv import load_dotenv
 
@@ -23,6 +31,7 @@ PUBLIC_KEY           = os.environ["ATLAS_PUBLIC_KEY"]
 PRIVATE_KEY          = os.environ["ATLAS_PRIVATE_KEY"]
 PROJECT_ID           = os.environ["ATLAS_PROJECT_ID"]
 CLUSTER_NAME         = os.environ["CLUSTER_NAME"]
+MONGODB_URI          = os.environ["MONGODB_URI"]
 DB_NAME              = os.environ.get("DB_NAME", "sample_mflix")
 COLLECTION_NAME      = os.environ.get("COLLECTION_NAME", "movies")
 CUTOFF_YEAR          = int(os.environ.get("ARCHIVE_CUTOFF_YEAR", "2001"))
@@ -35,6 +44,19 @@ HEADERS  = {
     "Content-Type": "application/json",
     "Accept": "application/vnd.atlas.2023-01-01+json",
 }
+
+
+def ensure_index():
+    """Create an index on the archive field if one does not already exist."""
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10_000)
+    coll = client[DB_NAME][COLLECTION_NAME]
+    existing = {idx["name"] for idx in coll.list_indexes()}
+    if "year_1" in existing:
+        print("  Index on 'year' already exists — skipping creation.")
+    else:
+        coll.create_index([("year", ASCENDING)], name="year_1")
+        print("  Index on 'year' created.")
+    client.close()
 
 
 def list_archives():
@@ -66,6 +88,11 @@ def create_archive():
             "type": "CUSTOM",
             "query": json.dumps(archive_query),
         },
+        # Partition fields define how archived data is organised in object
+        # storage.  They act as an index for the cold tier — queries that
+        # filter on 'year' can skip irrelevant partitions without scanning
+        # every archived object.  Order matters: the first field produces the
+        # coarsest-grained partitions (choose the field you filter on most).
         "partitionFields": [
             {"fieldName": "year",  "order": 0},
             {"fieldName": "title", "order": 1},
@@ -100,10 +127,16 @@ def main():
         print(f"and run query_demo.py.")
         return
 
-    print(f"Creating archive rule:")
+    # ── Step 1: create index on the archive field ───────────────────
+    print(f"\nEnsuring index on '{COLLECTION_NAME}.year' (archive + query performance)...")
+    ensure_index()
+
+    # ── Step 2: create the archive rule ────────────────────────────
+    print(f"\nCreating archive rule:")
     print(f"  Collection : {DB_NAME}.{COLLECTION_NAME}")
     print(f"  Field      : year  (integer or string)")
     print(f"  Criteria   : year < {CUTOFF_YEAR}  OR  year is a string (garbled entries)")
+    print(f"  Partitions : year → title  (cold-tier query index)")
     if ARCHIVE_CLOUD_PROVIDER and ARCHIVE_REGION:
         print(f"  Data region: {ARCHIVE_CLOUD_PROVIDER} / {ARCHIVE_REGION}")
     else:
