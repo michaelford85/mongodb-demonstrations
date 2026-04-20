@@ -11,6 +11,7 @@ daily schedule. This script creates that rule via the Atlas Admin API.
 Run once. Re-running safely detects and reports an existing rule.
 """
 
+import json
 import os
 import requests
 from requests.auth import HTTPDigestAuth
@@ -46,12 +47,24 @@ def list_archives():
 
 def create_archive():
     url = f"{BASE_URL}/groups/{PROJECT_ID}/clusters/{CLUSTER_NAME}/onlineArchives"
+    # The CUSTOM query archives documents where year is a number < CUTOFF_YEAR
+    # OR where year is stored as a string.  A small subset of sample_mflix.movies
+    # has garbled string values (e.g. "1981è", "1994è1998") instead of integers;
+    # those documents predate the cutoff but would be skipped by a numeric-only
+    # comparison because BSON sorts all strings after all numbers.
+    archive_query = {
+        "$or": [
+            {"year": {"$lt": CUTOFF_YEAR}},
+            {"year": {"$type": "string"}},
+        ]
+    }
+
     body = {
         "dbName": DB_NAME,
         "collName": COLLECTION_NAME,
         "criteria": {
             "type": "CUSTOM",
-            "query": f'{{"year": {{"$lt": {CUTOFF_YEAR}}}}}',
+            "query": json.dumps(archive_query),
         },
         "partitionFields": [
             {"fieldName": "year",  "order": 0},
@@ -89,8 +102,8 @@ def main():
 
     print(f"Creating archive rule:")
     print(f"  Collection : {DB_NAME}.{COLLECTION_NAME}")
-    print(f"  Field      : year  (integer)")
-    print(f"  Criteria   : year < {CUTOFF_YEAR}")
+    print(f"  Field      : year  (integer or string)")
+    print(f"  Criteria   : year < {CUTOFF_YEAR}  OR  year is a string (garbled entries)")
     if ARCHIVE_CLOUD_PROVIDER and ARCHIVE_REGION:
         print(f"  Data region: {ARCHIVE_CLOUD_PROVIDER} / {ARCHIVE_REGION}")
     else:
