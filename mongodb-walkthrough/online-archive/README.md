@@ -21,7 +21,9 @@ Application ──────►│  Atlas Data Federation endpoint     │
                    └───────────────┘  └────────────────────┘
 ```
 
-The archive rule in this demo targets the `year` field in `sample_mflix.movies`. Every document in the collection has this integer field, making the hot/cold split clean and predictable. Movies with `year < ARCHIVE_CUTOFF_YEAR` are moved to cold storage; newer movies stay on the live cluster.
+The archive rule in this demo targets the `year` field in `sample_mflix.movies`. Movies with `year < ARCHIVE_CUTOFF_YEAR` are moved to cold storage; newer movies stay on the live cluster.
+
+> **Note on data quality:** a small number of documents in the sample dataset store `year` as a garbled string (e.g. `"1981è"`, `"1994è1998"`) rather than an integer. Because BSON orders all strings after all numbers, a purely numeric `$lt` comparison would leave those documents on the hot tier. The archive query uses an `$or` to also catch string-typed `year` values — all of which predate the cutoff in practice.
 
 ---
 
@@ -56,9 +58,9 @@ MONGODB_URI=...
 # Movies with year < this value are archived. 2001 gives a good hot/cold split.
 ARCHIVE_CUTOFF_YEAR=2001
 
-# Required for multi-region clusters — Atlas cannot auto-determine the archive
-# storage region when a cluster spans more than one region. Use any region the
-# cluster already has nodes in (e.g. the primary region).
+# Online Archive stores data in AWS S3 or Azure Blob Storage only — GCP is not
+# supported as a data process region even if the cluster itself runs on GCP.
+# Pick an AWS or Azure region geographically close to your cluster nodes.
 ARCHIVE_CLOUD_PROVIDER=AWS
 ARCHIVE_REGION=US_EAST_1
 ```
@@ -96,13 +98,20 @@ Once archiving has run, Atlas creates a federated endpoint automatically.
 python3 query_demo.py
 ```
 
-The script runs three queries against the **live cluster** (hot tier only) and the same three queries against the **federated endpoint** (hot + cold):
+The script runs three queries twice — once against each connection string:
 
-| Query | Expected behaviour |
-|---|---|
-| `year >= CUTOFF_YEAR` | Fast on both endpoints — data is on the live cluster |
-| `year < CUTOFF_YEAR` | Returns 0 on live cluster (archived); 2–4 s on federated endpoint |
-| Full scan | Federated endpoint is slower — it combines both tiers |
+| Connection string | Env var | Tiers queried |
+|---|---|---|
+| Regular cluster URI (`mongodb+srv://...`) | `MONGODB_URI` | Hot tier only |
+| Federated endpoint URI (`mongodb://...`) | `FEDERATED_URI` | Hot + cold tiers |
+
+> The federated endpoint uses `mongodb://` (not `mongodb+srv://`). Copy it from Atlas UI → **Online Archive** → **Connect** → **"Connect to Cluster and Online Archive"**.
+
+| Query | Hot tier only (`MONGODB_URI`) | Hot + cold (`FEDERATED_URI`) |
+|---|---|---|
+| `year >= CUTOFF_YEAR` | Fast — data is on the live cluster | Fast — same live data, slight overhead |
+| `year < CUTOFF_YEAR` | 0 documents (data has been archived) | 2–4 s — reads from cloud object storage |
+| Full scan | Live documents only | All documents, slower — combines both tiers |
 
 ---
 
@@ -129,3 +138,4 @@ Deleting the archive rule also removes the federated endpoint and all data in cl
 - Archived data is still fully queryable; the latency trade-off (2–4 s) is acceptable for infrequently accessed historical records
 - Storage cost for the cold tier is significantly lower than keeping all data on a live cluster
 - The archive rule can be paused, modified, or deleted at any time; archived data can be restored
+- **Schema flexibility requires query awareness:** a small number of documents in `sample_mflix.movies` store `year` as a malformed string (`"1981è"`, `"1994è1998"`) rather than an integer. MongoDB's BSON comparison ordering places all strings after all numbers, so a purely numeric `$lt` filter silently skips those documents — they stay on the hot tier even though they predate the cutoff. The archive query handles this with an `$or` that also matches string-typed `year` values. This is a useful contrast with relational databases, where a typed column prevents mixed types entirely — in MongoDB, heterogeneous field types are valid and the query layer must account for them. Schema validation (`$jsonSchema`) can enforce a single type going forward.
