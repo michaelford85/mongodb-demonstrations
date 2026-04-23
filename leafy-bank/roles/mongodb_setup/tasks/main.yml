@@ -1,0 +1,37 @@
+---
+- name: "mongodb_setup | ensure pymongo is installed"
+  ansible.builtin.pip:
+    name: pymongo
+    state: present
+
+- name: "mongodb_setup | build collection list for selected services"
+  ansible.builtin.set_fact:
+    _db_collections: >-
+      {{
+        setup_services
+        | selectattr('db_setup', 'defined')
+        | map(attribute='db_setup')
+        | map(attribute='collections_by_database')
+        | flatten
+      }}
+
+- name: "mongodb_setup | template setup script"
+  ansible.builtin.template:
+    src: setup_collections.py.j2
+    dest: /tmp/leafy_bank_setup_collections.py
+    mode: "0700"
+
+- name: "mongodb_setup | create databases and collections"
+  ansible.builtin.command:
+    cmd: "{{ ansible_python_interpreter }} /tmp/leafy_bank_setup_collections.py"
+  register: _setup_result
+  changed_when: "'Created' in _setup_result.stdout"
+
+- name: "mongodb_setup | show setup output"
+  ansible.builtin.debug:
+    msg: "{{ _setup_result.stdout_lines }}"
+
+- name: "mongodb_setup | remove setup script"
+  ansible.builtin.file:
+    path: /tmp/leafy_bank_setup_collections.py
+    state: absent

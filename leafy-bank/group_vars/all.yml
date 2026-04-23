@@ -8,13 +8,17 @@ leafy_bank_ui_branch: "staging"
 
 # ── Service catalogue ─────────────────────────────────────────────────────────
 # Each entry describes one backend microservice.
-#   name        – short identifier, used as tag and directory name
-#   repo        – GitHub clone URL
-#   branch      – branch to check out (default: main)
-#   port        – host port exposed by docker-compose
-#   core        – true = deployed by default even without explicit selection
-#   env_file    – path inside the repo where .env should be written
-#   env_vars    – key/value pairs written verbatim into that .env file
+#   name          – short identifier, used as tag and directory name
+#   repo          – GitHub clone URL
+#   branch        – branch to check out (default: main)
+#   port          – desired host port (what the UI connects to)
+#   internal_port – port the container listens on (from upstream docker-compose.yml)
+#   core          – true = deployed by default even without explicit selection
+#   env_file      – path inside the repo where .env should be written
+#   env_vars      – key/value pairs written verbatim into that .env file
+#
+# The docker_service role patches docker-compose.yml to map port → internal_port
+# so all services can run concurrently without host port conflicts.
 #
 # Secret values (mongodb_uri, api keys, etc.) are sourced from vars/secrets.yml.
 # Collection names and other non-secret config live here for easy editing.
@@ -25,8 +29,17 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-accounts.git"
     branch: main
     port: 8080
+    internal_port: 8080
     core: true
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: leafy_bank
+          collections:
+            - users
+            - accounts
+            - transactions
+            - notifications
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
 
@@ -34,8 +47,17 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-transactions.git"
     branch: main
     port: 8001
+    internal_port: 8000
     core: true
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: leafy_bank
+          collections:
+            - users
+            - accounts
+            - transactions
+            - notifications
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
 
@@ -43,6 +65,7 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/cross-backend-pdf-rag.git"
     branch: main
     port: 8002
+    internal_port: 8080
     core: false
     env_file: backend/.env
     env_vars:
@@ -61,8 +84,19 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-openfinance.git"
     branch: main
     port: 8003
+    internal_port: 8080
     core: false
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: leafy_bank
+          collections:
+            - users
+            - accounts
+            - transactions
+            - notifications
+            - external_accounts
+            - external_products
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
 
@@ -70,8 +104,22 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-loaders.git"
     branch: main
     port: 8004
+    internal_port: 8080
     core: false
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: agentic_capital_markets
+          collections:
+            - financial_news
+            - pyfredapiMacroeconomicIndicators
+            - yfinanceMarketData
+            - binanceCryptoData
+            - subredditSubmissions
+            - stablecoin_market_caps
+            - portfolio_allocation
+            - portfolio_performance
+            - chartMappings
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
       DATABASE_NAME: "agentic_capital_markets"
@@ -96,8 +144,24 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-agents.git"
     branch: main
     port: 8005
+    internal_port: 8080
     core: false
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: agentic_capital_markets
+          collections:
+            - agent_profiles
+            - reports_market_analysis
+            - reports_market_news
+            - reports_market_sm
+            - reports_crypto_analysis
+            - reports_crypto_news
+            - reports_crypto_sm
+            - portfolio_allocation
+            - portfolio_performance
+            - risk_profiles
+            - crypto_portfolio_allocation
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
       DATABASE_NAME: "agentic_capital_markets"
@@ -126,8 +190,19 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-react-agent-chatbot.git"
     branch: main
     port: 8006
+    internal_port: 8080
     core: false
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: agentic_capital_markets
+          collections:
+            - agent_profiles
+            - checkpoints_aio
+            - checkpoint_writes_aio
+            - reports_market_analysis
+            - reports_market_news
+            - reports_market_sm
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
       DATABASE_NAME: "agentic_capital_markets"
@@ -152,8 +227,21 @@ leafy_bank_services:
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-react-agent-crypto.git"
     branch: main
     port: 8007
+    internal_port: 8080
     core: false
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: agentic_capital_markets
+          collections:
+            - agent_profiles
+            - crypto_checkpoints_aio
+            - crypto_checkpoint_writes_aio
+            - reports_crypto_analysis
+            - reports_crypto_news
+            - reports_crypto_sm
+            - portfolio_performance
+            - crypto_portfolio_allocation
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
       DATABASE_NAME: "agentic_capital_markets"

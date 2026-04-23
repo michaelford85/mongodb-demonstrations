@@ -34,7 +34,13 @@
     # Build the effective service list.
     # Priority: explicit deploy_services > deploy_all flag > core + extra_services.
     _core_names: "{{ leafy_bank_services | selectattr('core', 'equalto', true) | map(attribute='name') | list }}"
-    _extra_names: "{{ extra_services | default([]) }}"
+    # Coerce to list — handles both -e "extra_services=[a,b]" (string) and proper list types.
+    _extra_names: >-
+      {{
+        extra_services | default([])
+        if (extra_services is not defined or extra_services is not string)
+        else extra_services | regex_replace('^\[|\]$', '') | split(',') | map('trim') | list
+      }}
     _all_names: "{{ leafy_bank_services | map(attribute='name') | list }}"
 
     _effective_names: >-
@@ -80,6 +86,15 @@
       tags: always
 
   tasks:
+    - name: Set up MongoDB databases and collections
+      ansible.builtin.include_role:
+        name: mongodb_setup
+      vars:
+        setup_services: "{{ _selected_services }}"
+      tags:
+        - mongodb
+        - backends
+
     - name: Deploy backend services
       ansible.builtin.include_role:
         name: docker_service

@@ -24,7 +24,12 @@
 
   vars:
     _core_names: "{{ leafy_bank_services | selectattr('core', 'equalto', true) | map(attribute='name') | list }}"
-    _extra_names: "{{ extra_services | default([]) }}"
+    _extra_names: >-
+      {{
+        extra_services | default([])
+        if (extra_services is not defined or extra_services is not string)
+        else extra_services | regex_replace('^\[|\]$', '') | split(',') | map('trim') | list
+      }}
     _all_names: "{{ leafy_bank_services | map(attribute='name') | list }}"
 
     _effective_names: >-

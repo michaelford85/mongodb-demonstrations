@@ -5,7 +5,13 @@
     dest: "{{ leafy_bank_deploy_dir }}/ui"
     version: "{{ leafy_bank_ui_branch }}"
     update: true
-    force: false
+    force: true
+
+- name: "ui | patch host port in docker-compose.yml (8080 → 3000)"
+  ansible.builtin.replace:
+    path: "{{ leafy_bank_deploy_dir }}/ui/docker-compose.yml"
+    regexp: '- "\d+:8080"'
+    replace: '- "3000:8080"'
 
 - name: "ui | write .env.local"
   ansible.builtin.template:
