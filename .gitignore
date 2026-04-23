@@ -1,7 +1,7 @@
 .DS_Store
 ./api-examples/clusters_and_members.json
-*/.env
-*/.env.vault
-*/.env.me
+**/.env
+**/.env.vault
+**/.env.me
 *.venv
 *.python-version
