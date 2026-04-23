@@ -5,7 +5,13 @@
     dest: "{{ leafy_bank_deploy_dir }}/{{ service.name }}"
     version: "{{ service.branch | default('main') }}"
     update: true
-    force: false
+    force: true
+
+- name: "{{ service.name }} | patch host port in docker-compose.yml"
+  ansible.builtin.replace:
+    path: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/docker-compose.yml"
+    regexp: '- "\d+:{{ service.internal_port }}"'
+    replace: '- "{{ service.port }}:{{ service.internal_port }}"'
 
 - name: "{{ service.name }} | write .env file"
   ansible.builtin.template:
