@@ -1,0 +1,26 @@
+---
+- name: "ui | clone or update repo"
+  ansible.builtin.git:
+    repo: "{{ leafy_bank_ui_repo }}"
+    dest: "{{ leafy_bank_deploy_dir }}/ui"
+    version: "{{ leafy_bank_ui_branch }}"
+    update: true
+    force: false
+
+- name: "ui | write .env.local"
+  ansible.builtin.template:
+    src: env.local.j2
+    dest: "{{ leafy_bank_deploy_dir }}/ui/frontend/.env.local"
+    mode: "0600"
+
+- name: "ui | build and start container"
+  community.docker.docker_compose_v2:
+    project_src: "{{ leafy_bank_deploy_dir }}/ui"
+    build: always
+    state: present
+  register: _ui_compose_result
+
+- name: "ui | show result"
+  ansible.builtin.debug:
+    msg: "Leafy Bank UI is up — open http://localhost:3000"
+  when: _ui_compose_result is changed

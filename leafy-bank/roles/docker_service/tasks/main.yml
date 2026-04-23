@@ -1,0 +1,26 @@
+---
+- name: "{{ service.name }} | clone or update repo"
+  ansible.builtin.git:
+    repo: "{{ service.repo }}"
+    dest: "{{ leafy_bank_deploy_dir }}/{{ service.name }}"
+    version: "{{ service.branch | default('main') }}"
+    update: true
+    force: false
+
+- name: "{{ service.name }} | write .env file"
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ service.env_file }}"
+    mode: "0600"
+
+- name: "{{ service.name }} | build and start container"
+  community.docker.docker_compose_v2:
+    project_src: "{{ leafy_bank_deploy_dir }}/{{ service.name }}"
+    build: always
+    state: present
+  register: _compose_result
+
+- name: "{{ service.name }} | show compose result"
+  ansible.builtin.debug:
+    msg: "{{ service.name }} is up on port {{ service.port }}"
+  when: _compose_result is changed

@@ -1,0 +1,70 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Leafy Bank — teardown playbook
+#
+# Stops and removes containers, images, and volumes for selected services.
+#
+# Usage:
+#   # Tear down everything (same selection logic as site.yml).
+#   ansible-playbook teardown.yml
+#
+#   # Tear down specific services.
+#   ansible-playbook teardown.yml -e "deploy_services=[chatbot,openfinance]"
+#
+#   # Tear down all services.
+#   ansible-playbook teardown.yml -e "deploy_all=true"
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Tear down Leafy Bank services
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - vars/secrets.yml
+
+  vars:
+    _core_names: "{{ leafy_bank_services | selectattr('core', 'equalto', true) | map(attribute='name') | list }}"
+    _extra_names: "{{ extra_services | default([]) }}"
+    _all_names: "{{ leafy_bank_services | map(attribute='name') | list }}"
+
+    _effective_names: >-
+      {{
+        deploy_services
+        if deploy_services is defined
+        else (
+          _all_names
+          if (deploy_all | default(false) | bool)
+          else (_core_names + _extra_names) | unique
+        )
+      }}
+
+    _selected_services: >-
+      {{
+        leafy_bank_services
+        | selectattr('name', 'in', _effective_names)
+        | list
+      }}
+
+    _teardown_ui: "{{ deploy_ui | default(true) | bool }}"
+
+  tasks:
+    - name: "{{ item.name }} | stop and remove containers, images, volumes"
+      community.docker.docker_compose_v2:
+        project_src: "{{ leafy_bank_deploy_dir }}/{{ item.name }}"
+        state: absent
+        remove_images: all
+        remove_volumes: true
+      loop: "{{ _selected_services }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: (leafy_bank_deploy_dir + '/' + item.name) is directory
+
+    - name: "ui | stop and remove containers, images, volumes"
+      community.docker.docker_compose_v2:
+        project_src: "{{ leafy_bank_deploy_dir }}/ui"
+        state: absent
+        remove_images: all
+        remove_volumes: true
+      when:
+        - _teardown_ui
+        - (leafy_bank_deploy_dir + '/ui') is directory

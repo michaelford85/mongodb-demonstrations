@@ -1,0 +1,4 @@
+---
+# Overridable defaults for the docker_service role.
+# Pass `service` as a variable when including this role.
+service_branch: main
