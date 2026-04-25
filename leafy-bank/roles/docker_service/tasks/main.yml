@@ -13,6 +13,16 @@
     regexp: '- "\d+:{{ service.internal_port }}"'
     replace: '- "{{ service.port }}:{{ service.internal_port }}"'
 
+- name: "{{ service.name }} | apply config file patches"
+  ansible.builtin.replace:
+    path: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ patch.path }}"
+    regexp: "{{ patch.regexp }}"
+    replace: "{{ patch.replace }}"
+  loop: "{{ service.file_patches | default([]) }}"
+  loop_control:
+    loop_var: patch
+    label: "{{ patch.path }}"
+
 - name: "{{ service.name }} | write .env file"
   ansible.builtin.template:
     src: env.j2

@@ -68,17 +68,36 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    db_setup:
+      collections_by_database:
+        - database: leafy_bank_pdf_rag
+          collections:
+            - default
+    # Patch config.yaml after cloning:
+    #   - Clear mdb_url_secret so the service uses MONGODB_URI from .env
+    #     instead of fetching credentials from AWS Secrets Manager.
+    #   - Disable S3 so PDFs are served from the local filesystem.
+    file_patches:
+      - path: backend/config.yaml
+        regexp: 'mdb_url_secret:.*"ist/demos/fsi/mdb/uri"'
+        replace: 'mdb_url_secret: ""'
+      - path: backend/config.yaml
+        regexp: 'aws_s3_enabled: True'
+        replace: 'aws_s3_enabled: False'
+      # When mdb_url_secret is empty, base.py falls back to MONGODB_URI but
+      # never sets self.mdb_database. Patch the else branch to read it from
+      # demo_config so downstream code (get_db.py, rag_setup.py) has a name.
+      - path: backend/base.py
+        regexp: 'self\.mdb_uri = os\.getenv\("MONGODB_URI"\)'
+        replace: 'self.mdb_uri = os.getenv("MONGODB_URI")\n            self.mdb_database = self.demo_config.get("mdb_database", "leafy_bank_pdf_rag")'
     env_vars:
-      MONGODB_URI: "{{ mongodb_uri }}"
+      # Include the database name in the URI — superduper parses it from the
+      # path component and fails with an empty string if it's omitted.
+      MONGODB_URI: "{{ mongodb_uri }}leafy_bank_pdf_rag"
+      FSI_INDUSTRY: "fsi"
+      FSI_DEMO_NAME: "leafy_bank_assistant"
       AWS_REGION: "{{ aws_region }}"
-      AWS_S3_ENABLED: "False"
-      AWS_S3_BUCKET: ""
-      AWS_S3_PDF_FOLDER: ""
-      ARTIFACT_STORE: "data/leafy_bank/artifacts"
-      PDF_FOLDER: "data/leafy_bank/pdfs"
-      PDFS: "['personal-banking-terms-conditions.pdf']"
-      EMBEDDING_MODEL: "{{ chatbot_embedding_model }}"
-      CHAT_COMPLETION_MODEL: "{{ chatbot_completion_model }}"
+      NODE_ENV: "prod"
 
   - name: openfinance
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-openfinance.git"
@@ -95,10 +114,15 @@ leafy_bank_services:
             - accounts
             - transactions
             - notifications
+        - database: open_finance
+          collections:
             - external_accounts
             - external_products
+            - tokens
     env_vars:
       MONGODB_URI: "{{ mongodb_uri }}"
+      OPENFINANCE_DB_NAME: "open_finance"
+      LEAFYBANK_DB_NAME: "leafy_bank"
 
   - name: cm-loaders
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-loaders.git"
@@ -263,3 +287,20 @@ leafy_bank_services:
       REPORT_VECTOR_FIELD: "report_embedding"
       PORTFOLIO_PERFORMANCE_COLLECTION: "portfolio_performance"
       CRYPTO_PORTFOLIO_ALLOCATION_COLLECTION: "crypto_portfolio_allocation"
+
+  - name: cm-mcp
+    repo: "https://github.com/mongodb-industry-solutions/leafy-bank-capitalmarkets-mcp.git"
+    branch: main
+    port: 8008
+    internal_port: 8080
+    core: false
+    # .env lives at the repo root for this Next.js app (not in backend/).
+    # AWS credentials are supplied via the ~/.aws volume mount in the
+    # upstream docker-compose.yml — no explicit key vars needed here.
+    env_file: .env
+    env_vars:
+      NEXT_PUBLIC_MCP_CONNECTION_STRING: "{{ mongodb_uri }}"
+      NEXT_PUBLIC_MCP_API_CLIENT_ID: "{{ atlas_api_client_id }}"
+      NEXT_PUBLIC_MCP_API_CLIENT_SECRET: "{{ atlas_api_client_secret }}"
+      NEXT_PUBLIC_AWS_REGION: "{{ aws_region }}"
+      NEXT_PUBLIC_CHAT_COMPLETIONS_MODEL_ID: "{{ bedrock_chat_model_id }}"

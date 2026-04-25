@@ -6,6 +6,7 @@ Rather than cloning nine repositories and hand-crafting `.env` files, this autom
 
 - Clones each selected backend service repo and the UI.
 - Generates a correctly wired `.env` / `.env.local` from a single secrets file.
+- Creates required MongoDB databases and collections automatically.
 - Builds and starts every container via Docker Compose.
 
 ---
@@ -14,17 +15,23 @@ Rather than cloning nine repositories and hand-crafting `.env` files, this autom
 
 ```
 Leafy Bank UI  (Next.js, port 3000)
-├── Accounts Service           port 8080  [core]
-├── Transactions Service        port 8001  [core]
-├── Chatbot / PDF-RAG           port 8002  [optional]
-├── Open Finance Service        port 8003  [optional]
-├── Capital Markets — Loaders   port 8004  [optional]
-├── Capital Markets — Agents    port 8005  [optional]
-├── Capital Markets — Market Assistant  port 8006  [optional]
-└── Capital Markets — Crypto Assistant  port 8007  [optional]
+├── Accounts Service                        port 8080  [core]
+├── Transactions Service                    port 8001  [core]
+├── Chatbot / PDF-RAG                       port 8002  [optional — see note]
+├── Open Finance Service                    port 8003  [optional]
+├── Capital Markets — Loaders               port 8004  [optional]
+├── Capital Markets — Agents               port 8005  [optional]
+├── Capital Markets — Market Assistant      port 8006  [optional]
+├── Capital Markets — Crypto Assistant      port 8007  [optional]
+└── Capital Markets — MCP Interaction       port 8008  [optional, standalone UI]
 ```
 
 All services connect to your existing **MongoDB Atlas** cluster.
+
+> **Chatbot note:** The Leafy Personal Assistant (`chatbot`) requires a PDF file
+> (`personal-banking-terms-conditions.pdf`) that is stored in a private MongoDB S3
+> bucket. It cannot be deployed without access to that bucket. Exclude it from all
+> deploy commands until the PDF is available.
 
 ---
 
@@ -36,9 +43,12 @@ Leafy Bank is structured as three progressive tiers. Each tier introduces new Mo
 
 ### Tier 1 — Core Banking (Accounts + Transactions)
 
-**Deploy:** `ansible-playbook site.yml`
+**Deploy:**
+```bash
+ansible-playbook site.yml
+```
 
-Select any demo user from the welcome screen, then explore:
+Select any demo user from the welcome screen at `http://localhost:3000`, then explore:
 
 - **Account management** — open and close accounts, view balances and account cards. The document model stores the full account record as a single BSON document, eliminating joins and making reads fast.
 - **Transfers and digital payments** — send money between demo users. Each payment touches multiple collections atomically. This is the **multi-document ACID transaction** story: either all writes commit or none do, with no partial state visible to other operations.
@@ -53,42 +63,78 @@ Select any demo user from the welcome screen, then explore:
 
 ---
 
-### Tier 2 — Open Finance + AI Assistant
+### Tier 2 — Open Finance
 
-**Deploy:** `ansible-playbook site.yml -e "extra_services=[chatbot,openfinance]"`
+**Deploy:**
+```bash
+ansible-playbook site.yml -e "deploy_services=[accounts,transactions,openfinance]"
+```
 
 - **Open Finance** — connect to simulated external institutions. The service aggregates accounts and products (loans, mortgages) from multiple sources into a unified financial summary. Demonstrates **aggregation pipelines** combining heterogeneous data and MongoDB's **BSON/JSON compatibility** with external APIs — no serialisation layer needed.
-- **Leafy Personal Assistant** — a chatbot that answers questions about banking terms, conditions, and account details. Backed by **Atlas Vector Search**: PDF documents are chunked, embedded, and stored as vectors in MongoDB. User questions are embedded at query time and matched semantically — not by keyword — against the stored chunks.
 
 **MongoDB capabilities on show:**
 | Capability | Where you see it |
 |---|---|
 | Aggregation pipelines | Global financial summary across internal + external accounts |
-| Atlas Vector Search | Chatbot semantic retrieval over PDF content |
 | Flexible schema | Heterogeneous external account/product documents in one collection |
 
 ---
 
-### Tier 3 — Capital Markets & Agentic AI
+### Tier 3 — Capital Markets & Agentic AI ⭐
 
-**Deploy:** `ansible-playbook site.yml -e "deploy_all=true"`
+> **This is the recommended tier for showcasing MongoDB's Agentic AI capabilities.**
+> MongoDB acts as the data layer for agent reasoning, planning, memory, and tool use —
+> not just storage.
 
-> **Important:** `cm-loaders` must run and complete a data load cycle before the agents and assistants have data to work with. Trigger a load via the UI or the loaders API after deployment.
+**Deploy:**
+```bash
+ansible-playbook site.yml -e "deploy_services=[accounts,transactions,openfinance,cm-loaders,cm-agents,cm-market-assistant,cm-crypto-assistant,cm-mcp]"
+```
 
-- **Market & Crypto portfolios** — view pre-built investment portfolios for traditional assets (stocks, ETFs) and cryptocurrency. Data is ingested from Yahoo Finance, Binance, FRED, and CoinGecko via the loaders service and stored in **Time Series collections** — optimised storage and querying for high-frequency market data.
-- **Scheduled Agents** — six specialised AI agents run on a schedule, each analysing a different signal: price trends, financial news sentiment, and social media sentiment for both traditional and crypto assets. Agent reports are stored in MongoDB and retrieved via **Atlas Vector Search** using the `voyage-finance-2` finance-domain embedding model.
-- **Market Assistant & Crypto Assistant** — ReAct (Reason and Act) conversational agents built with LangGraph. Ask natural language questions about portfolios, market conditions, or asset allocation. These agents showcase two Atlas capabilities working together:
-  - **Atlas Vector Search** — semantic retrieval of agent-generated reports
-  - **MongoDB as agent memory** — the LangGraph checkpointer persists the full agent state (reasoning steps, tool calls, intermediate results) into MongoDB collections after every interaction step, enabling true multi-turn conversations with full context
+> **Data dependency:** After deployment, trigger `cm-loaders` to run a data load cycle
+> before using the agents and assistants. The loaders populate the market data collections
+> that agents read from. Without this step, agent responses will be empty.
 
-**MongoDB capabilities on show:**
-| Capability | Where you see it |
+#### What to explore
+
+- **Market & Crypto portfolios** — view pre-built investment portfolios for traditional assets (stocks, ETFs) and cryptocurrency. Data is ingested from Yahoo Finance, Binance, FRED, and CoinGecko and stored in **Time Series collections** — optimised for high-frequency market data.
+
+- **Scheduled Agents** (`cm-agents`, port 8005) — six specialised AI agents run on a schedule, each analysing a different signal: price trends, financial news sentiment, and social media sentiment for both traditional and crypto assets. Reports are stored in MongoDB and retrieved via **Atlas Vector Search** using the `voyage-finance-2` finance-domain embedding model.
+
+- **Market Assistant & Crypto Assistant** (`localhost:3000`) — ReAct (Reason and Act) conversational agents built with LangGraph. Ask natural language questions about portfolios, market conditions, or asset allocation.
+
+- **MCP Interaction** (`http://localhost:8008`) — a standalone UI that showcases MongoDB as a first-class AI tool via the Model Context Protocol. Open this for the clearest view of MongoDB's role in an agentic system.
+
+#### Where MongoDB powers the AI agent
+
+| MongoDB capability | Role in the agent |
 |---|---|
-| Time Series collections | Market and crypto price history (yfinance, Binance) |
-| Atlas Vector Search | Agent report retrieval with finance-domain embeddings |
-| Agentic AI memory | LangGraph checkpointer stores agent state in MongoDB |
-| Document model for agent state | Complex nested agent state maps naturally to BSON |
-| Scheduled writes | Loaders and agent report generation run on a timer |
+| **Time Series collections** | Stores market and crypto price history for agent analysis |
+| **Atlas Vector Search** | Semantic retrieval of agent-generated reports using finance-domain embeddings |
+| **Agent memory (LangGraph checkpointer)** | Full agent state — reasoning steps, tool calls, intermediate results — is persisted to MongoDB after every interaction, enabling true multi-turn conversations |
+| **Document model for agent state** | Complex nested agent state maps naturally to BSON with no ORM or schema migration |
+| **MongoDB MCP Server** | Agents query Atlas via JSON-RPC without a MongoDB driver — standardised, observable, and read-only enforced |
+| **Scheduled writes** | Loaders and agent report generation run on a timer, continuously updating the knowledge base |
+
+---
+
+### Tier 3b — MCP Interaction *(standalone, best for AI demos)*
+
+**Deploy** (can be added to any tier):
+```bash
+ansible-playbook site.yml -e "extra_services=[cm-mcp]"
+```
+
+**Open at:** `http://localhost:8008` *(separate UI — independent of localhost:3000)*
+
+The MCP Interaction service is the cleanest single-screen demonstration of **MongoDB as an AI data layer**. It spawns the [mongodb-mcp-server](https://github.com/mongodb-js/mongodb-mcp-server) as a child process and communicates with it via JSON-RPC. A ReAct agent translates natural language questions into MCP tool calls (`find`, `aggregate`, `list-collections`) and streams the full reasoning chain back to the UI in real time.
+
+Key talking points:
+- The agent has **no MongoDB driver** — it only speaks MCP protocol
+- Every tool call and response is visible in the console panel — nothing is hidden
+- Read-only access is **enforced at the MCP Server level**, safe for live demos against Atlas
+
+> **Prerequisites:** Atlas programmatic API keys (`atlas_api_client_id` / `atlas_api_client_secret`) in `secrets.yml`, and AWS credentials in `~/.aws` (mounted automatically by Docker). Run `cm-loaders` at least once first to populate `yfinanceMarketData` and `binanceCryptoData`.
 
 ---
 
@@ -101,12 +147,15 @@ For implementation details and the "Where Does MongoDB Shine?" narrative for eac
 | UI | [leafy-bank-ui (staging)](https://github.com/mongodb-industry-solutions/leafy-bank-ui/tree/staging) |
 | Accounts | [leafy-bank-backend-accounts](https://github.com/mongodb-industry-solutions/leafy-bank-backend-accounts) |
 | Transactions | [leafy-bank-backend-transactions](https://github.com/mongodb-industry-solutions/leafy-bank-backend-transactions) |
-| Chatbot | [cross-backend-pdf-rag](https://github.com/mongodb-industry-solutions/cross-backend-pdf-rag) |
+| Chatbot ⚠️ | [cross-backend-pdf-rag](https://github.com/mongodb-industry-solutions/cross-backend-pdf-rag) |
 | Open Finance | [leafy-bank-backend-openfinance](https://github.com/mongodb-industry-solutions/leafy-bank-backend-openfinance) |
 | CM Loaders | [leafy-bank-backend-capitalmarkets-loaders](https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-loaders) |
 | CM Agents | [leafy-bank-backend-capitalmarkets-agents](https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-agents) |
 | CM Market Assistant | [leafy-bank-backend-capitalmarkets-react-agent-chatbot](https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-react-agent-chatbot) |
 | CM Crypto Assistant | [leafy-bank-backend-capitalmarkets-react-agent-crypto](https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-react-agent-crypto) |
+| CM MCP Interaction | [leafy-bank-capitalmarkets-mcp](https://github.com/mongodb-industry-solutions/leafy-bank-capitalmarkets-mcp) |
+
+⚠️ Chatbot requires a PDF from a private MongoDB S3 bucket — not deployable without internal access.
 
 ---
 
@@ -119,11 +168,13 @@ For implementation details and the "Where Does MongoDB Shine?" narrative for eac
 | Python ≥ 3.10 | For Ansible itself |
 | Git | To clone service repos |
 
-Install the required Ansible collection once:
+Install the required Ansible collections once, from inside the venv:
 
 ```bash
+cd leafy-bank
 python3 -m venv .venv
 source .venv/bin/activate
+pip install ansible-core
 ansible-galaxy collection install -r requirements.yml
 ```
 
@@ -139,50 +190,70 @@ cp vars/secrets.example.yml vars/secrets.yml
 
 Edit `vars/secrets.yml` and fill in:
 
-- `mongodb_uri` — your Atlas connection string
+- `mongodb_uri` — your Atlas connection string (`mongodb+srv://user:pass@cluster.mongodb.net/`)
 - `atlas_project_id` / `atlas_project_name` — from the Atlas UI
-- AWS credentials (needed for chatbot and all Capital Markets services)
-- API keys for VoyageAI, Tavily, FRED, and Reddit (Capital Markets only)
+- `aws_*` — AWS credentials with Bedrock access (Capital Markets services)
+- `voyage_api_key`, `tavily_api_key` — Capital Markets assistants
+- `fred_api_key`, `reddit_*` — Capital Markets loaders (Reddit keys may take days to approve)
+- `atlas_api_client_id` / `atlas_api_client_secret` — Atlas programmatic API keys (MCP service)
 
 `vars/secrets.yml` is gitignored and will never be committed.
 
 ### 2. Deploy
 
-**Core only** (Accounts + Transactions + UI):
+**Always activate the venv first:**
+```bash
+source .venv/bin/activate
+```
 
+**Core only** (Accounts + Transactions + UI):
 ```bash
 ansible-playbook site.yml
 ```
 
-**Add optional services:**
-
+**Recommended for Agentic AI demos** (all Capital Markets, no chatbot):
 ```bash
-ansible-playbook site.yml -e "extra_services=[chatbot,openfinance]"
+ansible-playbook site.yml -e "deploy_services=[accounts,transactions,openfinance,cm-loaders,cm-agents,cm-market-assistant,cm-crypto-assistant,cm-mcp]"
 ```
 
-**Deploy everything:**
-
+**Add Open Finance to core:**
 ```bash
-ansible-playbook site.yml -e "deploy_all=true"
+ansible-playbook site.yml -e "extra_services=[openfinance]"
 ```
 
-**Custom selection** (overrides all defaults):
-
+**Custom selection:**
 ```bash
-ansible-playbook site.yml -e "deploy_services=[accounts,transactions,chatbot]"
+ansible-playbook site.yml -e "deploy_services=[accounts,transactions,openfinance]"
 ```
 
 **Skip the UI** (backends only):
-
 ```bash
 ansible-playbook site.yml -e "deploy_ui=false"
 ```
 
 ### 3. Open the demo
 
+| URL | What's there |
+|---|---|
+| `http://localhost:3000` | Leafy Bank UI — main demo interface |
+| `http://localhost:8008` | MCP Interaction — standalone Agentic AI demo |
+
+---
+
+## Teardown
+
+**Tear down everything and start fresh:**
+```bash
+source .venv/bin/activate
+ansible-playbook teardown.yml -e "deploy_all=true"
 ```
-http://localhost:3000
+
+**Tear down a specific set:**
+```bash
+ansible-playbook teardown.yml -e "deploy_services=[cm-loaders,cm-agents]"
 ```
+
+The teardown removes containers, images, and volumes but leaves the cloned repos in `services/` intact so the next deploy skips the git clone step.
 
 ---
 
@@ -192,26 +263,16 @@ http://localhost:3000
 |---|---|---|
 | `accounts` | 8080 | — |
 | `transactions` | 8001 | — |
-| `chatbot` | 8002 | `aws_*`, `chatbot_*_model` |
+| `chatbot` ⚠️ | 8002 | `aws_*` + private PDF from MongoDB S3 |
 | `openfinance` | 8003 | — |
 | `cm-loaders` | 8004 | `voyage_api_key`, `fred_api_key`, `reddit_*` |
 | `cm-agents` | 8005 | `voyage_api_key`, `aws_*`, `bedrock_chat_model_id` |
 | `cm-market-assistant` | 8006 | `voyage_api_key`, `tavily_api_key`, `aws_*` |
 | `cm-crypto-assistant` | 8007 | `voyage_api_key`, `tavily_api_key`, `aws_*` |
+| `cm-mcp` | 8008 | `atlas_api_client_id`, `atlas_api_client_secret`, `aws_*` |
 
-> **Capital Markets dependency order:** `cm-loaders` must run first to populate collections before `cm-agents` can generate reports, and the assistant services (`cm-market-assistant`, `cm-crypto-assistant`) depend on those reports.
-
----
-
-## Teardown
-
-Stop and remove all containers, images, and volumes for the default service set:
-
-```bash
-ansible-playbook teardown.yml
-```
-
-Use the same `-e` flags as `site.yml` to target a subset.
+> **Capital Markets dependency order:** `cm-loaders` → `cm-agents` → assistants.
+> Run a loader cycle after deployment before querying the assistants.
 
 ---
 
@@ -221,7 +282,7 @@ Use the same `-e` flags as `site.yml` to target a subset.
 leafy-bank/
 ├── ansible.cfg                 # Ansible config (inventory, roles path, etc.)
 ├── inventory.yml               # localhost connection
-├── requirements.yml            # community.docker collection
+├── requirements.yml            # Ansible collections (community.docker, community.general)
 ├── site.yml                    # Deploy playbook
 ├── teardown.yml                # Remove playbook
 ├── group_vars/
@@ -230,7 +291,8 @@ leafy-bank/
 │   ├── secrets.example.yml     # Template — copy to secrets.yml
 │   └── secrets.yml             # Your credentials (gitignored)
 ├── roles/
-│   ├── docker_service/         # Generic role: clone → .env → docker compose up
+│   ├── mongodb_setup/          # Creates databases and collections before services start
+│   ├── docker_service/         # Generic role: clone → patch → .env → docker compose up
 │   │   ├── defaults/main.yml
 │   │   ├── tasks/main.yml
 │   │   └── templates/env.j2
@@ -256,5 +318,6 @@ Each service entry in `group_vars/all.yml` has a `branch` field. Change it to pi
 
 Each service entry has an `env_vars` dict. Values may reference any variable in `secrets.yml` or `all.yml` using standard Jinja2 (`{{ variable_name }}`).
 
----
+### Patching upstream config files
 
+Each service entry supports a `file_patches` list for regex replacements applied after cloning. Used internally to adapt the chatbot service for local deployment. See `group_vars/all.yml` for examples.
