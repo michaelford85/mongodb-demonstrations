@@ -32,6 +32,7 @@ leafy_bank_services:
     internal_port: 8080
     core: true
     env_file: backend/.env
+    seed_data_dir: backend/data/sample
     db_setup:
       collections_by_database:
         - database: leafy_bank
@@ -50,6 +51,7 @@ leafy_bank_services:
     internal_port: 8000
     core: true
     env_file: backend/.env
+    seed_data_dir: backend/data/sample
     db_setup:
       collections_by_database:
         - database: leafy_bank
@@ -68,6 +70,10 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    # Path inside the cloned repo where the PDF must be placed before Docker build.
+    # The playbook copies chatbot_pdf_path (from secrets.yml) here automatically.
+    # Any PDF placed here is ingested; the filename becomes the document title in RAG.
+    pdf_dest_dir: backend/data/fsi/leafy_bank_assistant/pdfs
     db_setup:
       collections_by_database:
         - database: leafy_bank_pdf_rag
@@ -106,6 +112,7 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    seed_data_dir: backend/data/sample
     db_setup:
       collections_by_database:
         - database: leafy_bank
@@ -131,6 +138,19 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    seed_data_dir: backend/loaders/db/collections
+    vector_search_indexes:
+      - database: agentic_capital_markets
+        collection: financial_news
+        index_name: financial_news_VS_IDX
+        vector_field: article_embedding
+        dimensions: 1024
+        similarity: cosine
+        filter_fields:
+          - sentiment_score.positive
+          - sentiment_score.negative
+          - sentiment_score.neutral
+          - ticker
     db_setup:
       collections_by_database:
         - database: agentic_capital_markets
@@ -171,6 +191,7 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    seed_data_dir: backend/collections
     db_setup:
       collections_by_database:
         - database: agentic_capital_markets
@@ -193,6 +214,8 @@ leafy_bank_services:
       VOYAGE_API_KEY: "{{ voyage_api_key }}"
       EMBEDDINGS_MODEL_ID: "voyage-finance-2"
       AWS_REGION: "{{ aws_region }}"
+      AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+      AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
       CHAT_COMPLETIONS_MODEL_ID: "{{ bedrock_chat_model_id }}"
       YFINANCE_TIMESERIES_COLLECTION: "yfinanceMarketData"
       PYFREDAPI_COLLECTION: "pyfredapiMacroeconomicIndicators"
@@ -209,6 +232,8 @@ leafy_bank_services:
       REPORTS_COLLECTION_CRYPTO_NEWS: "reports_crypto_news"
       REPORTS_COLLECTION_CRYPTO_SM: "reports_crypto_sm"
       SUBREDDIT_SUBMISSIONS_COLLECTION: "subredditSubmissions"
+      # Align news vector index name with what cm-loaders creates
+      NEWS_VECTOR_INDEX_NAME: "financial_news_VS_IDX"
 
   - name: cm-market-assistant
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-react-agent-chatbot.git"
@@ -217,6 +242,26 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    seed_data_dir: backend/db/collections
+    vector_search_indexes:
+      - database: agentic_capital_markets
+        collection: reports_market_analysis
+        index_name: reports_market_analysis_report_embedding_index
+        vector_field: report_embedding
+        dimensions: 1024
+        similarity: cosine
+      - database: agentic_capital_markets
+        collection: reports_market_news
+        index_name: reports_market_news_report_embedding_index
+        vector_field: report_embedding
+        dimensions: 1024
+        similarity: cosine
+      - database: agentic_capital_markets
+        collection: reports_market_sm
+        index_name: reports_market_sm_report_embedding_index
+        vector_field: report_embedding
+        dimensions: 1024
+        similarity: cosine
     db_setup:
       collections_by_database:
         - database: agentic_capital_markets
@@ -234,6 +279,8 @@ leafy_bank_services:
       VOYAGE_API_KEY: "{{ voyage_api_key }}"
       TAVILY_API_KEY: "{{ tavily_api_key }}"
       AWS_REGION: "{{ aws_region }}"
+      AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+      AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
       CHAT_COMPLETIONS_MODEL_ID: "{{ bedrock_chat_model_id }}"
       EMBEDDINGS_MODEL_ID: "voyage-finance-2"
       AGENT_PROFILES_COLLECTION: "agent_profiles"
@@ -246,6 +293,8 @@ leafy_bank_services:
       REPORTS_COLLECTION_MARKET_SM: "reports_market_sm"
       REPORT_MARKET_SM_VECTOR_INDEX_NAME: "reports_market_sm_report_embedding_index"
       REPORT_VECTOR_FIELD: "report_embedding"
+      PORTFOLIO_PERFORMANCE_COLLECTION: "portfolio_performance"
+      PORTFOLIO_ALLOCATION_COLLECTION: "portfolio_allocation"
 
   - name: cm-crypto-assistant
     repo: "https://github.com/mongodb-industry-solutions/leafy-bank-backend-capitalmarkets-react-agent-crypto.git"
@@ -254,6 +303,26 @@ leafy_bank_services:
     internal_port: 8080
     core: false
     env_file: backend/.env
+    seed_data_dir: backend/db/collections
+    vector_search_indexes:
+      - database: agentic_capital_markets
+        collection: reports_crypto_analysis
+        index_name: reports_crypto_analysis_report_embedding_index
+        vector_field: report_embedding
+        dimensions: 1024
+        similarity: cosine
+      - database: agentic_capital_markets
+        collection: reports_crypto_news
+        index_name: reports_crypto_news_report_embedding_index
+        vector_field: report_embedding
+        dimensions: 1024
+        similarity: cosine
+      - database: agentic_capital_markets
+        collection: reports_crypto_sm
+        index_name: reports_crypto_sm_report_embedding_index
+        vector_field: report_embedding
+        dimensions: 1024
+        similarity: cosine
     db_setup:
       collections_by_database:
         - database: agentic_capital_markets
@@ -273,6 +342,8 @@ leafy_bank_services:
       VOYAGE_API_KEY: "{{ voyage_api_key }}"
       TAVILY_API_KEY: "{{ tavily_api_key }}"
       AWS_REGION: "{{ aws_region }}"
+      AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+      AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
       CHAT_COMPLETIONS_MODEL_ID: "{{ bedrock_chat_model_id }}"
       EMBEDDINGS_MODEL_ID: "voyage-finance-2"
       AGENT_PROFILES_COLLECTION: "agent_profiles"
