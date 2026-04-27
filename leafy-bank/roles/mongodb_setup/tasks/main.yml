@@ -35,3 +35,4 @@
   ansible.builtin.file:
     path: /tmp/leafy_bank_setup_collections.py
     state: absent
+
