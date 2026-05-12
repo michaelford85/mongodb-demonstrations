@@ -15,7 +15,7 @@ from typing import Any
 from faker import Faker
 
 from config import CASE_REASONS, PRODUCT_GROUPS, REGIONS, SALES_AREAS, load_settings
-from embeddings import embed_account
+from embeddings import compose_account_text, embed_documents
 
 OUTPUT_PATH = Path(__file__).parent / "data" / "accounts.jsonl"
 
@@ -72,12 +72,18 @@ def _regional_attrs(region: str, rng: random.Random, fake: Faker) -> dict[str, A
     }
 
 
-def generate(row_count: int, embed_dim: int, seed: int = 42) -> list[dict[str, Any]]:
+def generate(
+    row_count: int,
+    embed_dim: int,
+    voyage_api_key: str,
+    voyage_model: str,
+    seed: int = 42,
+) -> list[dict[str, Any]]:
     rng = random.Random(seed)
     fake = Faker()
     Faker.seed(seed)
     rows: list[dict[str, Any]] = []
-    for i in range(row_count):
+    for _ in range(row_count):
         region = rng.choice(REGIONS)
         product_group = rng.choice(PRODUCT_GROUPS)
         account_name = _account_name(rng)
@@ -90,9 +96,21 @@ def generate(row_count: int, embed_dim: int, seed: int = 42) -> list[dict[str, A
             "service_agent_id": f"AGT-{rng.randint(1000, 9999)}",
             "region": region,
             "regional_attrs": _regional_attrs(region, rng, fake),
-            "embedding": embed_account(account_name, product_group, embed_dim),
+            "embedding_text": compose_account_text(account_name, product_group),
         }
         rows.append(row)
+
+    # Embed the corpus in batches via Voyage AI. The same embedding_text is
+    # stored on every document so Atlas Automated Embedding can re-derive
+    # the same vector server-side from the text field on the MongoDB side.
+    texts = [row["embedding_text"] for row in rows]
+    print(
+        f"Embedding {len(texts)} documents via Voyage AI "
+        f"(model={voyage_model}, dim={embed_dim})..."
+    )
+    vectors = embed_documents(texts, voyage_api_key, voyage_model, embed_dim)
+    for row, vec in zip(rows, vectors):
+        row["embedding"] = vec
     return rows
 
 
@@ -113,7 +131,13 @@ def main() -> None:
     args = parser.parse_args()
     if not 1000 <= args.rows <= 17000:
         raise SystemExit("--rows must be between 1000 and 17000")
-    rows = generate(args.rows, args.dim, args.seed)
+    rows = generate(
+        args.rows,
+        args.dim,
+        settings.voyage_api_key,
+        settings.voyage_model,
+        args.seed,
+    )
     write_jsonl(rows, args.out)
     print(f"Wrote {len(rows)} synthetic rows to {args.out}")
 

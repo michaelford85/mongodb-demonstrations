@@ -5,3 +5,4 @@ python-dotenv>=1.0
 numpy>=1.26
 faker>=24.0
 tabulate>=0.9
+voyageai>=0.3
