@@ -1,0 +1,10 @@
+voyageai>=0.3
+pymongo>=4.7
+azure-cosmos>=4.7
+azure-storage-blob>=12.20
+azure-identity>=1.17
+python-dotenv>=1.0
+reportlab>=4.2
+pypdf>=4.3
+faker>=24.0
+tabulate>=0.9
