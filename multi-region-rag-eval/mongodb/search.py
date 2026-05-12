@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from config import load_settings  # noqa: E402
-from embeddings import embed_account  # noqa: E402
+from embeddings import compose_account_text  # noqa: E402
 
 
 def search(
@@ -23,13 +23,16 @@ def search(
     k: int = 5,
 ) -> tuple[list[dict[str, Any]], float]:
     settings = load_settings()
-    query_vec = embed_account(query_account, product_group, settings.embed_dim)
+    # Atlas Automated Embedding embeds the query string with the same Voyage
+    # AI model used at index-time, so we only need to hand it the same
+    # composed text that the indexer would have produced.
+    query_text = compose_account_text(query_account, product_group)
 
     vector_stage: dict[str, Any] = {
         "$vectorSearch": {
             "index": settings.atlas_vector_index,
-            "path": "embedding",
-            "queryVector": query_vec,
+            "path": "embedding_text",
+            "query": {"text": query_text},
             "numCandidates": max(100, k * 20),
             "limit": k,
         }

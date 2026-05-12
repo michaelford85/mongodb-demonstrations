@@ -31,7 +31,12 @@ def _read_rows(path: Path):
 
 
 def _to_document(row: dict) -> dict:
-    """Flatten regional_attrs to the top level to showcase polymorphic BSON."""
+    """Flatten regional_attrs to the top level to showcase polymorphic BSON.
+
+    We store the raw ``embedding_text`` rather than the precomputed vector:
+    Atlas Automated Embedding generates and maintains the vector server-side
+    from this field at index-time.
+    """
     doc = {
         "account_name": row["account_name"],
         "product_group": row["product_group"],
@@ -40,7 +45,7 @@ def _to_document(row: dict) -> dict:
         "sales_area": row["sales_area"],
         "service_agent_id": row["service_agent_id"],
         "region": row["region"],
-        "embedding": row["embedding"],
+        "embedding_text": row["embedding_text"],
     }
     # Same collection, different shape per region. No migration needed.
     doc.update(row["regional_attrs"])
@@ -91,7 +96,8 @@ def main() -> None:
     print(
         "Reminder: ensure the Atlas Vector Search index "
         f"'{settings.atlas_vector_index}' is created using "
-        "mongodb/atlas_index.json before running searches."
+        "mongodb/atlas_index.json before running searches "
+        "(see mongodb/create_index.py)."
     )
 
 

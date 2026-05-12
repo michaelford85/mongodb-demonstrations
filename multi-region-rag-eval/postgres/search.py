@@ -24,7 +24,13 @@ def search(
     k: int = 5,
 ) -> tuple[list[dict[str, Any]], float]:
     settings = load_settings()
-    query_vec = embed_account(query_account, product_group, settings.embed_dim)
+    query_vec = embed_account(
+        query_account,
+        product_group,
+        settings.voyage_api_key,
+        settings.voyage_model,
+        settings.embed_dim,
+    )
 
     # Pre-filtering by region happens in the WHERE clause; the planner can use
     # the btree index on region to shrink the candidate set before the HNSW
