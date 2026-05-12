@@ -87,7 +87,9 @@ def _build_chunk_records(
             for chunk_idx, chunk_text in enumerate(
                 _chunk_text(page_text, size, overlap)
             ):
-                chunk_id = f"{entry['document_id']}#p{page_idx:03d}#c{chunk_idx:03d}"
+                # Underscore separators because Cosmos rejects '/', '\', '?', '#'
+                # in the document id field.
+                chunk_id = f"{entry['document_id']}_p{page_idx:03d}_c{chunk_idx:03d}"
                 records.append(
                     {
                         "chunk_id": chunk_id,

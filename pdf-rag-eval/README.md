@@ -14,10 +14,9 @@ embed_and_load.py    →  data/chunks.jsonl  (Voyage embeddings included)
 cosmos/ingest.py     →  Cosmos DB NoSQL container
 mongodb/ingest.py    →  MongoDB Atlas collection
 mongodb/create_index.py → Atlas Vector Search index
+compare/*.py         →  Cosmos-vs-Atlas comparison demos
+retrieve.py          →  query → Atlas vector search → SAS-signed PDF URL
 ```
-
-Phases 2c (Cosmos-vs-Atlas comparison demos) and 2d (metadata-driven
-Blob retrieval) are **not yet built** — see the bottom of this file.
 
 ## Prerequisites
 
@@ -79,7 +78,7 @@ each side.
 
 ```json
 {
-  "chunk_id": "8b4f...#p007#c003",
+  "chunk_id": "8b4f..._p007_c003",
   "document_id": "8b4f1c2a9e10",
   "blob_path": "engineering/engineering-007-8b4f1c2a9e10.pdf",
   "blob_url":  "https://<account>.blob.core.windows.net/pdfs/...",
@@ -135,16 +134,52 @@ cd infra && ./teardown.sh
 cd ../../cosmosdb-cluster-provisioning && ./teardown.sh
 ```
 
-## What's next (not yet built)
+## Comparison demos (`compare/`)
 
-- **`compare/connections.py`** — concurrency curve showing Cosmos 429s
-  under sustained load vs Atlas tier connection headroom.
-- **`compare/index_limits.py`** — Cosmos NoSQL caps vector indexes per
-  container; create more on Atlas successfully.
-- **`compare/full_scan.py`** — RU explosion on an unindexed Cosmos
-  query vs `executionStats` from an indexed Atlas `$search`.
-- **`retrieve.py`** — query → Atlas vector search → resolve
-  `blob_path` metadata → stream the source PDF page from Blob with a
-  short-lived SAS URL.
+Each script can be pointed at one backend or both. They expect the
+pipeline above to have run, so both stores hold the same chunks and the
+Atlas Vector Search index is queryable.
 
-These will be added once the loading pipeline above is validated.
+```bash
+# Concurrent vector-search load. Watch the 'throttled' column climb on
+# Cosmos as workers go above what the autoscale RU/s ceiling supports.
+python -m compare.connections --workers 16 --duration 30
+
+# Vector-paths-per-container cap. Tries Cosmos with 11 vector paths
+# (rejected), then creates 11 vectorSearch indexes on a temporary Atlas
+# collection (accepted) and tears them down.
+python -m compare.index_limits
+
+# Cost of scan-style operations. Cosmos RU per page vs Atlas latency
+# for total count and full _id projection across the chunk set.
+python -m compare.full_scan
+```
+
+All three accept `--only cosmos` or `--only atlas` if you want to drive
+one side at a time.
+
+## Metadata-driven retrieval (`retrieve.py`)
+
+Demonstrates the "MongoDB as the directory of your unstructured data"
+story: the chunk's vector lives in Atlas, the authoritative PDF stays
+in Blob, and Atlas's metadata is the join key. The script never copies
+the PDF into the database — it mints a short-lived SAS URL on demand.
+
+```bash
+# Top-5 hits, with SAS URLs valid for 15 minutes.
+python retrieve.py "what are the safety procedures"
+
+# Push the department filter into the $vectorSearch stage (pre-filter,
+# not post-filter) and save just the matching page of each hit locally.
+python retrieve.py "expense policy" --department compliance --save-pages out/
+
+# Shorter-lived URLs for a live demo.
+python retrieve.py "rollout checklist" --k 3 --expiry 5
+```
+
+Each result prints the rank, similarity score, title, page number,
+department, the chunk_id, a one-line text snippet, and a signed URL.
+With `--save-pages DIR`, the script downloads each hit's PDF from
+Blob, slices out the specific page via `pypdf`, and writes it as
+`NN-<filename-stem>-pPPP.pdf` so you can hand a reviewer the exact
+page that was retrieved rather than the whole document.
