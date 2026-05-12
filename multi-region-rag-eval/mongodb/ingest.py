@@ -33,9 +33,10 @@ def _read_rows(path: Path):
 def _to_document(row: dict) -> dict:
     """Flatten regional_attrs to the top level to showcase polymorphic BSON.
 
-    We store the raw ``embedding_text`` rather than the precomputed vector:
-    Atlas Automated Embedding generates and maintains the vector server-side
-    from this field at index-time.
+    We persist both the composed ``embedding_text`` (useful for diagnostics)
+    and the precomputed ``embedding`` vector produced by generate_data.py.
+    The Atlas Vector Search index is built over the ``embedding`` field so
+    both backends compare against the *same* Voyage AI vectors.
     """
     doc = {
         "account_name": row["account_name"],
@@ -46,6 +47,7 @@ def _to_document(row: dict) -> dict:
         "service_agent_id": row["service_agent_id"],
         "region": row["region"],
         "embedding_text": row["embedding_text"],
+        "embedding": row["embedding"],
     }
     # Same collection, different shape per region. No migration needed.
     doc.update(row["regional_attrs"])
