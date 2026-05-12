@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from config import load_settings  # noqa: E402
-from embeddings import compose_account_text  # noqa: E402
+from embeddings import embed_account  # noqa: E402
 
 
 def search(
@@ -21,18 +21,27 @@ def search(
     product_group: str,
     region: str | None,
     k: int = 5,
+    *,
+    coll: Any | None = None,
 ) -> tuple[list[dict[str, Any]], float]:
     settings = load_settings()
-    # Atlas Automated Embedding embeds the query string with the same Voyage
-    # AI model used at index-time, so we only need to hand it the same
-    # composed text that the indexer would have produced.
-    query_text = compose_account_text(query_account, product_group)
+    # Embed the query client-side with the same Voyage AI model, dimension,
+    # and ``input_type="query"`` setting the Postgres path uses. The Atlas
+    # index stores the document-side vectors produced by generate_data.py,
+    # so both backends are scoring identical pairs of vectors.
+    query_vec = embed_account(
+        query_account,
+        product_group,
+        settings.voyage_api_key,
+        settings.voyage_model,
+        settings.embed_dim,
+    )
 
     vector_stage: dict[str, Any] = {
         "$vectorSearch": {
             "index": settings.atlas_vector_index,
-            "path": "embedding_text",
-            "query": {"text": query_text},
+            "path": "embedding",
+            "queryVector": query_vec,
             "numCandidates": max(100, k * 20),
             "limit": k,
         }
@@ -58,8 +67,12 @@ def search(
         },
     ]
 
-    client = MongoClient(settings.mongo_uri)
-    coll = client[settings.mongo_db][settings.mongo_collection]
+    # Caller can pass an already-resolved Collection so that SRV DNS, TLS
+    # handshake, replica-set discovery, and server selection are excluded
+    # from the timed window (used by compare.py).
+    if coll is None:
+        client = MongoClient(settings.mongo_uri)
+        coll = client[settings.mongo_db][settings.mongo_collection]
     start = time.perf_counter()
     results = list(coll.aggregate(pipeline))
     elapsed_ms = (time.perf_counter() - start) * 1000.0

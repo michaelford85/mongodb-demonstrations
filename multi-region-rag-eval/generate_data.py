@@ -100,9 +100,10 @@ def generate(
         }
         rows.append(row)
 
-    # Embed the corpus in batches via Voyage AI. The same embedding_text is
-    # stored on every document so Atlas Automated Embedding can re-derive
-    # the same vector server-side from the text field on the MongoDB side.
+    # Embed the corpus in batches via Voyage AI. The resulting vector is
+    # written to every row's ``embedding`` field and loaded verbatim into
+    # both pgvector and Atlas Vector Search so the two backends score the
+    # same pairs of vectors at query time.
     texts = [row["embedding_text"] for row in rows]
     print(
         f"Embedding {len(texts)} documents via Voyage AI "

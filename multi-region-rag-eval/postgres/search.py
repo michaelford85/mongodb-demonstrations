@@ -22,6 +22,8 @@ def search(
     product_group: str,
     region: str | None,
     k: int = 5,
+    *,
+    conn: psycopg.Connection | None = None,
 ) -> tuple[list[dict[str, Any]], float]:
     settings = load_settings()
     query_vec = embed_account(
@@ -51,14 +53,22 @@ def search(
         sql = sql.format(where="")
         params = (query_vec, query_vec, k)
 
-    with psycopg.connect(settings.pg_conn_str) as conn:
+    # Caller can pass an already-connected, vector-registered Connection to
+    # exclude TCP/TLS/auth setup from the timed window (used by compare.py).
+    owns_conn = conn is None
+    if owns_conn:
+        conn = psycopg.connect(settings.pg_conn_str)
         register_vector(conn)
+    try:
         with conn.cursor() as cur:
             start = time.perf_counter()
             cur.execute(sql, params)
             results = cur.fetchall()
             elapsed_ms = (time.perf_counter() - start) * 1000.0
             colnames = [d.name for d in cur.description]
+    finally:
+        if owns_conn:
+            conn.close()
     return [dict(zip(colnames, row)) for row in results], elapsed_ms
 
 

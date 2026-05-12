@@ -19,11 +19,12 @@ are purely a property of the database.
    between regional shapes.
 2. **Vector search with real embeddings.** Both backends embed text with
    [Voyage AI](https://docs.voyageai.com/) using the same model (configured
-   via `VOYAGE_MODEL`). Postgres uses `pgvector` with an HNSW cosine index
-   over a client-side embedding; MongoDB uses an Atlas Vector Search index
-   with `type: "autoEmbed"`, so Atlas generates and maintains the vectors
-   server-side from the document text — no application code touches a query
-   vector.
+   via `VOYAGE_MODEL`), the same `output_dimension`, and the same
+   `input_type` per call (`document` for ingest, `query` for search).
+   Postgres uses `pgvector` with an HNSW cosine index; MongoDB uses an
+   Atlas Vector Search index of `type: "vector"` over the same client-side
+   vectors with `similarity: "cosine"`. Identical vectors and identical
+   metric, so any difference at query time is a property of the database.
 3. **Pre-filtering.** Both queries restrict the candidate set by `region`
    before scoring similarity, which is the cost-saving pattern most teams want
    in production.
@@ -46,7 +47,7 @@ multi-region-rag-eval/
 │   ├── cleanup.py          # truncate or drop the routing table
 │   └── search.py           # vector query with region pre-filter
 ├── mongodb/
-│   ├── atlas_index.json    # Atlas Vector Search index definition (autoEmbed)
+│   ├── atlas_index.json    # Atlas Vector Search index definition (type=vector)
 │   ├── create_index.py     # apply atlas_index.json to the Atlas cluster
 │   ├── ingest.py           # loader for MongoDB Atlas
 │   ├── cleanup.py          # delete documents or drop the collection
@@ -60,12 +61,13 @@ multi-region-rag-eval/
 - An Amazon RDS / Aurora Postgres instance with the `vector` extension
   installed and a DB user that may create tables/indexes in the target
   database.
-- A MongoDB Atlas cluster (M10 or higher for Vector Search) and a DB user with
-  read/write access to the target database. Atlas Automated Embedding requires
-  a cluster running MongoDB 8.1+ on a tier that supports Vector Search.
-- A [Voyage AI](https://docs.voyageai.com/) API key with quota for the model
-  configured in `VOYAGE_MODEL`. The same key is used client-side by the
-  Postgres path and server-side by Atlas Automated Embedding.
+- A MongoDB Atlas cluster (M10 or higher for Vector Search) and a DB user
+  with read/write access to the target database. No Auto-Scale, MongoDB 8.1+,
+  or Atlas-side Model API Key registration is required — the demo embeds
+  client-side and only needs `$vectorSearch` query support on the cluster.
+- A **Voyage AI API key** from [voyageai.com](https://www.voyageai.com/).
+  Both backends read it from `VOYAGE_API_KEY` in `.env`. The same key is
+  used for ingest-time and query-time embedding calls.
 - Network reachability from the machine running the scripts to both clusters.
 
 ### Provisioning the backing clusters
@@ -125,9 +127,8 @@ python generate_data.py --rows 5000
 
 Adjust `--rows` between 1000 and 17000. The output is written to
 `data/accounts.jsonl`. Each row carries both the composed `embedding_text`
-(used by Atlas Automated Embedding) and the Voyage AI vector produced from
-that text (used by the Postgres path), so both loaders share an embedding
-space.
+and the Voyage AI vector produced from that text; both loaders persist the
+same vector, so the two backends score identical pairs at query time.
 
 ## Step 2 — Load Postgres (pgvector on Amazon RDS)
 
@@ -145,14 +146,16 @@ python -m mongodb.ingest --drop
 python -m mongodb.create_index --wait
 ```
 
-The ingest stores the raw `embedding_text` only; Atlas generates and maintains
-the vectors server-side once the index is created with `type: "autoEmbed"`.
+The ingest stores each document's precomputed Voyage AI vector in an
+`embedding` field alongside the source `embedding_text`, and the index is
+created with `type: "vector"` and `similarity: "cosine"` over that field.
 
 `mongodb/create_index.py` reads `mongodb/atlas_index.json`, substitutes
 `${VOYAGE_MODEL}` with the value from `.env`, and creates the index (or
 updates it in place if it already exists). Pass `--wait` to block until the
-index reports `queryable=true`, `--replace` to drop and recreate it, and
-`--timeout SECONDS` to extend the default 600 s wait.
+index reports `queryable=true`, `--replace` to drop and recreate it (needed
+when changing the index `type` or field shape), and `--timeout SECONDS` to
+extend the default 600 s wait.
 
 ## Step 4 — Run a fuzzy lookup
 
@@ -198,6 +201,76 @@ Expected signals that the demo is healthy:
   results table whose top row from each backend points at the same
   `service_agent_id` for the misspelled query.
 
+## Reading the comparison table
+
+The `score` column is **raw cosine similarity** between the query vector
+and each matched document vector — higher is more similar, with `1.0`
+meaning identical direction. For unit-normalised Voyage embeddings on
+related text the values typically land in the `0.5`–`0.8` band; the demo's
+typo-tolerant queries land around `0.65`.
+
+Both backends compute the same metric but report it differently on the
+wire, so `compare.py` normalises them to the same display scale:
+
+- **pgvector** returns `1 - cosine_distance`, i.e. raw cosine, directly.
+- **Atlas Vector Search** with `similarity: "cosine"` returns
+  `(1 + cosine) / 2` (so it always sits in `[0, 1]`); `compare.py` unmaps
+  that back to raw cosine before printing.
+
+Because both backends are scoring the **same** stored document vectors
+against the **same** query vector with the **same** metric, the score
+columns should match to four decimals and the row ordering should be
+identical. Any divergence would mean an ANN-recall miss in one of the
+indexes (different graph traversal, different `numCandidates` /
+`ef_search` settings) — which is a useful thing to see in a demo, not a
+bug.
+
+The two latency numbers reflect server-side ANN work plus one protocol
+round-trip on each side. `compare.py` warms both clients with a throwaway
+query before timing, so SRV DNS resolution, TLS handshake, replica-set
+discovery, and TCP/auth setup are excluded.
+
+## Where Atlas Vector Search differs from pgvector
+
+The demo deliberately equalises the embedding pipeline so that any
+runtime difference is a property of the database. The structural
+differences worth calling out for a prospect:
+
+- **ANN workload isolation.** Atlas Vector Search runs in a dedicated
+  `mongot` process colocated with each search node, so vector queries are
+  scheduled, cached, and (at higher tiers) scaled in CPU/RAM
+  independently of the OLTP workload on `mongod`. pgvector's HNSW probe
+  runs inside the regular Postgres backend and competes with the rest of
+  the database for shared buffers and worker slots.
+- **Native polymorphic documents.** Each region in this demo carries a
+  different set of `regional_attrs`. MongoDB indexes them as first-class
+  BSON fields with no schema migration between regional shapes; Postgres
+  has to keep them in a single JSONB column accessed through `->` / `->>`
+  operators and a separate GIN index.
+- **Filtered ANN at the engine layer.** `$vectorSearch` with `filter`
+  applies the predicate inside the HNSW traversal, intersecting the
+  candidate set as the graph is walked. Recent pgvector releases support
+  iterative filtered scans, but the predicate is enforced outside the
+  HNSW probe by default and tuning it for high-selectivity filters
+  remains a planner-level concern.
+- **Hybrid retrieval out of the box.** `$vectorSearch` composes natively
+  with Atlas's Lucene-based `$search` stage, so a single aggregation
+  pipeline can blend BM25 lexical scoring with ANN semantic scoring (via
+  `$rankFusion` or weighted score boosting). pgvector composes with
+  Postgres full-text search, but the two indexes are separate and the
+  fusion has to be hand-rolled.
+- **Operationally one fewer thing to run.** Vector Search is a managed
+  feature of the Atlas cluster you already operate; there is no
+  extension to enable, no version of pgvector to track against your
+  managed Postgres provider's allow-list, and no `CREATE EXTENSION
+  vector;` to re-run after a major upgrade.
+
+The flip side, in fairness: pgvector keeps the vector data, the
+operational data, and the transactional boundary inside one engine,
+which is the right answer when ANN is a small slice of a workload that
+is already a Postgres shop. The demo is meant to inform that choice,
+not foreclose it.
+
 ## Cleaning up the data
 
 Three scripts are provided to remove the demo data; each prompts for
@@ -229,26 +302,28 @@ sibling provisioning projects' `teardown.sh` scripts.
 
 ## Embeddings
 
-Both backends embed text with [Voyage AI](https://docs.voyageai.com/) using
-the model named in `VOYAGE_MODEL`. The two paths differ only in *where* the
-embedding call happens:
+Both backends embed text with [Voyage AI](https://docs.voyageai.com/)
+client-side (see `embeddings.py`), using the model named in `VOYAGE_MODEL`,
+the dimension named in `EMBED_DIM`, and `input_type="document"` for ingest
+and `input_type="query"` for search. `output_dimension` is passed through
+for the flexible-dimension models (`voyage-3-large`, the `voyage-4-*`
+family).
 
-- **Postgres path.** `generate_data.py` and `postgres/search.py` call the
-  Voyage AI API client-side (see `embeddings.py`), then hand the resulting
-  vector to `pgvector` for storage and `<=>` cosine search. Voyage's
-  recommended `input_type` is set per call (`document` for ingest, `query`
-  for search) and `output_dimension` is passed through for the models that
-  support flexible Matryoshka dimensions (`voyage-3-large`, the `voyage-4-*`
-  family).
-- **MongoDB path.** `mongodb/ingest.py` stores only the raw `embedding_text`.
-  The Atlas Vector Search index, created with `type: "autoEmbed"` and the
-  same `VOYAGE_MODEL`, generates and maintains vectors server-side. At query
-  time, `mongodb/search.py` passes the query text under
-  `$vectorSearch.query.text` and Atlas embeds it with the same model before
-  scoring — no application code ever holds the query vector.
+- **Postgres path.** `generate_data.py` writes the vector into each row;
+  `postgres/ingest.py` loads it into a `vector(N)` column; `postgres/search.py`
+  embeds the inbound query and scores with the `<=>` cosine operator over
+  the HNSW index.
+- **MongoDB path.** `generate_data.py` writes the same vector into each
+  row; `mongodb/ingest.py` persists it under `embedding`; the Atlas Vector
+  Search index of `type: "vector"` with `similarity: "cosine"` indexes that
+  field; `mongodb/search.py` embeds the inbound query and passes it under
+  `$vectorSearch.queryVector`.
 
-The two paths share an embedding space because they share a model, so
-results between the backends are directly comparable.
+Because the two paths share a model, dimension, `input_type`, *and* the
+exact stored vectors, any score or ranking difference is purely a property
+of the database's vector engine. `compare.py` also unmaps Atlas's
+`(1 + cosine) / 2` score back to raw cosine so the displayed columns are
+on the same scale.
 
 ## Environment variables
 
@@ -259,7 +334,7 @@ results between the backends are directly comparable.
 | `MONGO_DB`            | Target database name in Atlas.                         |
 | `MONGO_COLLECTION`    | Target collection name.                                |
 | `PG_TABLE`            | Target Postgres table name.                            |
-| `VOYAGE_API_KEY`      | Voyage AI API key (client-side + Atlas autoEmbed).     |
+| `VOYAGE_API_KEY`      | Voyage AI API key (shared by both backends).           |
 | `VOYAGE_MODEL`        | Voyage AI embedding model (e.g. `voyage-3-large`).     |
 | `EMBED_DIM`           | Vector dimensions: 256, 512, 1024, or 2048.            |
 | `ROW_COUNT`           | Default row count for `generate_data.py`.              |

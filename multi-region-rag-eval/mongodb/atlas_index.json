@@ -4,10 +4,10 @@
   "definition": {
     "fields": [
       {
-        "type": "autoEmbed",
-        "path": "embedding_text",
-        "model": "${VOYAGE_MODEL}",
-        "modality": "text"
+        "type": "vector",
+        "path": "embedding",
+        "numDimensions": 1024,
+        "similarity": "cosine"
       },
       {
         "type": "filter",

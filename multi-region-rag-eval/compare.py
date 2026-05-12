@@ -1,25 +1,37 @@
 """Run the same fuzzy lookup against both stores and print a side-by-side view.
 
 Example incoming email subject lines (with deliberate typos) can be passed via
-``--query``. The script generates the query embedding once and reuses it for
-each backend so the comparison is apples-to-apples.
+``--query``. Database connections are opened once and a throwaway warm-up
+query is issued against each backend before the timed query runs, so the
+reported latency reflects server-side work rather than one-shot client
+bootstrap (SRV DNS, TLS, replica-set discovery, TCP/auth handshake).
 """
 from __future__ import annotations
 
 import argparse
 
+import psycopg
+from pgvector.psycopg import register_vector
+from pymongo import MongoClient
 from tabulate import tabulate
 
+from config import load_settings
 from mongodb.search import search as mongo_search
 from postgres.search import search as pg_search
 
 
 def _rows_for_table(rows: list[dict], backend: str) -> list[list]:
+    # pgvector returns raw cosine similarity (1 - cosine_distance). Atlas
+    # $vectorSearch with similarity:"cosine" returns (1 + cosine)/2, so we
+    # unmap it back to raw cosine for a like-for-like display.
     out = []
     for r in rows:
+        score = r["similarity"]
+        if backend == "atlas":
+            score = 2.0 * score - 1.0
         out.append([
             backend,
-            f"{r['similarity']:.4f}",
+            f"{score:.4f}",
             r["account_name"],
             r["region"],
             r["product_group"],
@@ -39,8 +51,28 @@ def main() -> None:
     parser.add_argument("-k", type=int, default=5)
     args = parser.parse_args()
 
-    pg_rows, pg_ms = pg_search(args.query, args.product, args.region, args.k)
-    mongo_rows, mongo_ms = mongo_search(args.query, args.product, args.region, args.k)
+    settings = load_settings()
+
+    # Open both connections once. Both clients are otherwise lazy/cold on
+    # first wire op; hoisting them out of the per-call path is what makes
+    # the side-by-side latency numbers comparable.
+    with psycopg.connect(settings.pg_conn_str) as pg_conn, \
+            MongoClient(settings.mongo_uri) as mongo_client:
+        register_vector(pg_conn)
+        mongo_coll = mongo_client[settings.mongo_db][settings.mongo_collection]
+
+        # Untimed warm-up: a distinct, throwaway query that exercises the
+        # full network/auth/index path so the timed query below measures
+        # only the server-side ANN work and the protocol round-trip.
+        pg_search("__warmup__", args.product, args.region, args.k, conn=pg_conn)
+        mongo_search("__warmup__", args.product, args.region, args.k, coll=mongo_coll)
+
+        pg_rows, pg_ms = pg_search(
+            args.query, args.product, args.region, args.k, conn=pg_conn,
+        )
+        mongo_rows, mongo_ms = mongo_search(
+            args.query, args.product, args.region, args.k, coll=mongo_coll,
+        )
 
     print(f"\nIncoming query: {args.query!r}  product={args.product}  "
           f"region={args.region or 'ALL'}  k={args.k}")
