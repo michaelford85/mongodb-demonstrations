@@ -50,14 +50,35 @@ multi-region-rag-eval/
 ## Prerequisites
 
 - Python 3.10 or newer.
-- An Amazon RDS Postgres instance with the `vector` extension available and a
-  DB user that may create tables/indexes in the target database.
+- An Amazon RDS / Aurora Postgres instance with the `vector` extension
+  installed and a DB user that may create tables/indexes in the target
+  database.
 - A MongoDB Atlas cluster (M10 or higher for Vector Search) and a DB user with
   read/write access to the target database.
 - Network reachability from the machine running the scripts to both clusters.
 
-Cluster provisioning is **out of scope** for this demo; the scripts assume both
-clusters and their users already exist.
+### Provisioning the backing clusters
+
+This folder assumes the two clusters already exist, but two sibling projects
+in this repository can stand them up for you with a single command each:
+
+- **Aurora PostgreSQL + pgvector** — see
+  [`../postgres-cluster-provisioning`](../postgres-cluster-provisioning).
+  Its Terraform creates the cluster, opens the security group to your IP, and
+  installs the `vector` extension declaratively. After `./setup.sh` finishes,
+  run `terraform output -raw connection_string` to get the value you should
+  paste into `PG_CONN_STR` in this folder's `.env`.
+- **MongoDB Atlas cluster + DB user** — see
+  [`../atlas-cluster-provisioning`](../atlas-cluster-provisioning). Its
+  Terraform creates an `mongodbatlas_advanced_cluster` and an `atlasAdmin`
+  database user inside an existing Atlas project. After `./deploy.sh`
+  finishes, copy the connection string it prints into `MONGO_URI` in this
+  folder's `.env`. You'll still need to create the Atlas Vector Search index
+  once, using the definition in `mongodb/atlas_index.json`.
+
+Skipping the provisioning helpers and pointing at clusters you already manage
+works exactly the same — only `PG_CONN_STR` and `MONGO_URI` matter to the
+scripts here.
 
 ## Setup
 

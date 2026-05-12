@@ -29,11 +29,13 @@ terraform output psql_command
 
 cat <<'EOF'
 
+The pgvector extension has already been installed by Terraform
+(postgresql_extension.vector). Verify with:
+
+  psql "$(terraform output -raw connection_string)" \
+    -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
+
 To export the full connection string into your shell without printing it:
 
   export PG_CONN_STR="$(terraform output -raw connection_string)"
-
-To enable pgvector once the cluster is reachable:
-
-  psql "$PG_CONN_STR" -c 'CREATE EXTENSION IF NOT EXISTS vector;'
 EOF

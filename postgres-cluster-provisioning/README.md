@@ -13,10 +13,12 @@ secrets ever land in source control.
 | `aws_rds_cluster_instance`     | A single writer instance (`db.t4g.medium` default).  |
 | `aws_db_subnet_group`          | Subnet group spanning the default VPC's subnets.     |
 | `aws_security_group`           | Allows TCP 5432 only from the CIDRs you allow-list.  |
+| `postgresql_extension.vector`  | Installs `pgvector` inside the new database.         |
 
 The default VPC is used to keep the surface area small. The engine version
-defaults to **Aurora PostgreSQL 16.4**, which supports `pgvector` as a regular
-`CREATE EXTENSION vector;` install.
+defaults to **Aurora PostgreSQL 16.4**, which supports `pgvector`. The
+extension itself is installed declaratively as part of `terraform apply` via
+the `cyrilgdn/postgresql` provider — no manual `psql` step is required.
 
 ## Prerequisites
 
@@ -66,16 +68,29 @@ export PG_CONN_STR="$(terraform output -raw connection_string)"
 recommended way to consume a `sensitive = true` output. You can now hand
 `$PG_CONN_STR` to any client (psql, psycopg, etc.).
 
-### Enabling pgvector
+### pgvector is enabled automatically
 
-`pgvector` ships with Aurora PostgreSQL 15.3 and newer but is not enabled by
-default. Once the cluster is reachable:
+The `postgresql_extension.vector` resource in `main.tf` installs pgvector as
+part of `terraform apply`, immediately after the writer instance reports
+ready. You can verify it landed with:
 
 ```bash
-psql "$PG_CONN_STR" -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+psql "$PG_CONN_STR" \
+  -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
 ```
 
-The sibling demo `multi-region-rag-eval` expects this extension to be present.
+Because the extension is now a tracked Terraform resource:
+
+- `terraform plan` detects drift if anyone runs `DROP EXTENSION vector;`
+  manually, and the next apply reinstalls it.
+- `terraform destroy` runs `DROP EXTENSION` before tearing down the cluster.
+
+The sibling demo `multi-region-rag-eval` consumes this extension directly.
+
+> **Network requirement:** the machine running `terraform apply` connects to
+> the cluster on TCP 5432 to install the extension, so its public IP must
+> appear in `TF_VAR_allowed_cidr_blocks`. If you run apply from a different
+> network than the one that will use the cluster, list both CIDRs.
 
 ## Variables
 
