@@ -44,8 +44,8 @@ resource "aws_security_group" "db" {
 }
 
 # Aurora PostgreSQL cluster. pgvector is available as a regular extension from
-# Aurora PostgreSQL 15.3 onwards and can be enabled with `CREATE EXTENSION
-# vector;` once you connect.
+# Aurora PostgreSQL 15.3 onwards; the `postgresql_extension.vector` resource
+# below installs it once the writer instance is ready.
 resource "aws_rds_cluster" "this" {
   cluster_identifier      = var.cluster_identifier
   engine                  = "aurora-postgresql"
@@ -72,4 +72,17 @@ resource "aws_rds_cluster_instance" "this" {
   instance_class       = var.instance_class
   db_subnet_group_name = aws_db_subnet_group.this.name
   publicly_accessible  = var.publicly_accessible
+}
+
+# Declaratively install pgvector. Terraform tracks the extension as a resource
+# in state, so manual `DROP EXTENSION`s are detected as drift and `terraform
+# destroy` runs `DROP EXTENSION` cleanly before tearing the cluster down.
+#
+# The explicit depends_on is required because the postgresql provider would
+# otherwise try to connect as soon as the cluster endpoint exists, which is
+# before the writer instance is actually accepting connections.
+resource "postgresql_extension" "vector" {
+  name = "vector"
+
+  depends_on = [aws_rds_cluster_instance.this]
 }
