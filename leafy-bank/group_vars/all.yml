@@ -96,6 +96,27 @@ leafy_bank_services:
       - path: backend/base.py
         regexp: 'self\.mdb_uri = os\.getenv\("MONGODB_URI"\)'
         replace: 'self.mdb_uri = os.getenv("MONGODB_URI")\n            self.mdb_database = self.demo_config.get("mdb_database", "leafy_bank_pdf_rag")'
+      # config.yaml hardcodes a Legacy Bedrock model. Override with the
+      # cross-region inference profile from secrets.yml.
+      - path: backend/config.yaml
+        regexp: 'chat_completion_model:.*"anthropic\.claude.*"'
+        replace: 'chat_completion_model: "{{ bedrock_chat_model_id }}"'
+      # The artifact store (local HNSW index) lives inside the container and is
+      # wiped on every restart, making vector search return empty results.
+      # Mount a named host path so the index persists across restarts.
+      - path: docker-compose.yml
+        regexp: '      - ~/.aws/sso/cache:/root/.aws/sso/cache:rw.*'
+        replace: "      - ~/.aws/sso/cache:/root/.aws/sso/cache:rw  # Only make cache writable\n      - ./chatbot-artifacts:/data/fsi/leafy_bank_assistant/artifacts"
+      # main.py starts both an FSI (Leafy Bank) and an Insurance RAG instance.
+      # The Insurance instance tries to fetch a private secret from AWS Secrets
+      # Manager, fails, and crash-loops the container. Worse, if it gets past
+      # that, rag_setup.py calls delete_collections_except_default() which would
+      # wipe the FSI RAG data we just ingested.
+      # Fix: insert yield+return immediately after FSI setup so the Insurance
+      # block is never reached. The line is unique so the regexp is safe.
+      - path: backend/main.py
+        regexp: '    INSURANCE_INDUSTRY = "insurance"'
+        replace: '    logging.info("Startup setup completed.")\n    yield\n    logging.info("Shutting down...")\n    return\n    # Insurance startup removed — not needed for Leafy Bank local deployment'
     env_vars:
       # Include the database name in the URI — superduper parses it from the
       # path component and fails with an empty string if it's omitted.
