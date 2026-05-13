@@ -13,6 +13,13 @@ provider "mongodbatlas" {
   private_key = var.atlas_private_key
 }
 
+locals {
+  # Effective Compute Auto-Scale ceiling. Empty input pins max = current tier
+  # so the feature is enabled without actually scaling — the configuration
+  # Atlas Automated Embedding (autoEmbed) requires.
+  effective_compute_max = var.cluster_compute_max_instance_size != "" ? var.cluster_compute_max_instance_size : var.cluster_instance_size
+}
+
 # ── Cluster ────────────────────────────────────────────────────────────────────
 # Uses the advanced_cluster resource (recommended over the legacy cluster resource).
 # replication_specs.region_configs drives multi-region topology.
@@ -34,6 +41,21 @@ resource "mongodbatlas_advanced_cluster" "demo" {
         electable_specs {
           instance_size = var.cluster_instance_size
           node_count    = region_configs.value.electable_nodes
+        }
+
+        # Compute Auto-Scale is a prerequisite for Atlas Automated Embedding.
+        # With min == max == current tier the feature is enabled without
+        # actually scaling. Override cluster_compute_max_instance_size to
+        # raise the ceiling.
+        dynamic "auto_scaling" {
+          for_each = var.cluster_compute_autoscale_enabled ? [1] : []
+          content {
+            disk_gb_enabled            = true
+            compute_enabled            = true
+            compute_scale_down_enabled = false
+            compute_min_instance_size  = var.cluster_instance_size
+            compute_max_instance_size  = local.effective_compute_max
+          }
         }
       }
     }
