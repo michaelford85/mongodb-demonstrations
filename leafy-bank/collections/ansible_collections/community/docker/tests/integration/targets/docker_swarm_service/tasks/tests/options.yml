@@ -1,0 +1,2050 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+- name: Registering service name
+  ansible.builtin.set_fact:
+    service_name: "{{ name_prefix ~ '-options' }}"
+
+- name: Registering service name
+  ansible.builtin.set_fact:
+    service_names: "{{ service_names + [service_name] }}"
+
+####################################################################
+## args ############################################################
+####################################################################
+
+- name: args
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    args:
+      - sleep
+      - "3600"
+  register: args_1
+
+- name: args (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    args:
+      - sleep
+      - "3600"
+  register: args_2
+
+- name: args (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    args:
+      - sleep
+      - "3400"
+  register: args_3
+
+- name: args (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    args: []
+  register: args_4
+
+- name: args (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    args: []
+  register: args_5
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - args_1 is changed
+      - args_2 is not changed
+      - args_3 is changed
+      - args_4 is changed
+      - args_5 is not changed
+
+####################################################################
+## command #########################################################
+####################################################################
+
+- name: command
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+  register: command_1
+
+- name: command (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+  register: command_2
+
+- name: command (less parameters)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -c "sleep 10m"'
+  register: command_3
+
+- name: command (as list)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command:
+      - "/bin/sh"
+      - "-c"
+      - "sleep 10m"
+  register: command_4
+
+- name: command (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: []
+  register: command_5
+
+- name: command (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: []
+  register: command_6
+
+- name: command (string failure)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: true
+  register: command_7
+  ignore_errors: true
+
+- name: command (list failure)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command:
+      - "/bin/sh"
+      - true
+  register: command_8
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - command_1 is changed
+      - command_2 is not changed
+      - command_3 is changed
+      - command_4 is not changed
+      - command_5 is changed
+      - command_6 is not changed
+      - command_7 is failed
+      - command_8 is failed
+
+####################################################################
+## container_labels ################################################
+####################################################################
+
+- name: container_labels
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    container_labels:
+      test_1: "1"
+      test_2: "2"
+  register: container_labels_1
+
+- name: container_labels (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    container_labels:
+      test_1: "1"
+      test_2: "2"
+  register: container_labels_2
+
+- name: container_labels (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    container_labels:
+      test_1: "1"
+      test_2: "3"
+  register: container_labels_3
+
+- name: container_labels (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    container_labels: {}
+  register: container_labels_4
+
+- name: container_labels (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    container_labels: {}
+  register: container_labels_5
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - container_labels_1 is changed
+      - container_labels_2 is not changed
+      - container_labels_3 is changed
+      - container_labels_4 is changed
+      - container_labels_5 is not changed
+
+####################################################################
+## dns #############################################################
+####################################################################
+
+- name: dns
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+  register: dns_1
+  ignore_errors: true
+
+- name: dns (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+  register: dns_2
+  ignore_errors: true
+
+- name: dns_servers (changed order)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+  register: dns_3
+  ignore_errors: true
+
+- name: dns_servers (changed elements)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns:
+      - 8.8.8.8
+      - 9.9.9.9
+  register: dns_4
+  ignore_errors: true
+
+- name: dns_servers (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns: []
+  register: dns_5
+  ignore_errors: true
+
+- name: dns_servers (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns: []
+  register: dns_6
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - dns_1 is changed
+      - dns_2 is not changed
+      - dns_3 is changed
+      - dns_4 is changed
+      - dns_5 is changed
+      - dns_6 is not changed
+  when: docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - dns_1 is failed
+      - "'Minimum version required' in dns_1.msg"
+  when: docker_py_version is version('2.6.0', '<')
+
+####################################################################
+## dns_options #####################################################
+####################################################################
+
+- name: dns_options
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_options:
+      - "timeout:10"
+      - rotate
+  register: dns_options_1
+  ignore_errors: true
+
+- name: dns_options (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_options:
+      - "timeout:10"
+      - rotate
+  register: dns_options_2
+  ignore_errors: true
+
+- name: dns_options (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_options:
+      - "timeout:10"
+      - no-check-names
+  register: dns_options_3
+  ignore_errors: true
+
+- name: dns_options (order idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_options:
+      - no-check-names
+      - "timeout:10"
+  register: dns_options_4
+  ignore_errors: true
+
+- name: dns_options (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_options: []
+  register: dns_options_5
+  ignore_errors: true
+
+- name: dns_options (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_options: []
+  register: dns_options_6
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - dns_options_1 is changed
+      - dns_options_2 is not changed
+      - dns_options_3 is changed
+      - dns_options_4 is not changed
+      - dns_options_5 is changed
+      - dns_options_6 is not changed
+  when: docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - dns_options_1 is failed
+      - "'Minimum version required' in dns_options_1.msg"
+  when: docker_py_version is version('2.6.0', '<')
+
+####################################################################
+## dns_search ######################################################
+####################################################################
+
+- name: dns_search
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_search:
+      - example.com
+      - example.org
+  register: dns_search_1
+  ignore_errors: true
+
+- name: dns_search (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_search:
+      - example.com
+      - example.org
+  register: dns_search_2
+  ignore_errors: true
+
+- name: dns_search (different order)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_search:
+      - example.org
+      - example.com
+  register: dns_search_3
+  ignore_errors: true
+
+- name: dns_search (changed elements)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_search:
+      - ansible.com
+      - example.com
+  register: dns_search_4
+  ignore_errors: true
+
+- name: dns_search (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_search: []
+  register: dns_search_5
+  ignore_errors: true
+
+- name: dns_search (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    dns_search: []
+  register: dns_search_6
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - dns_search_1 is changed
+      - dns_search_2 is not changed
+      - dns_search_3 is changed
+      - dns_search_4 is changed
+      - dns_search_5 is changed
+      - dns_search_6 is not changed
+  when: docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - dns_search_1 is failed
+      - "'Minimum version required' in dns_search_1.msg"
+  when: docker_py_version is version('2.6.0', '<')
+
+####################################################################
+## endpoint_mode ###################################################
+####################################################################
+
+- name: endpoint_mode
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    endpoint_mode: "dnsrr"
+  register: endpoint_mode_1
+  ignore_errors: true
+
+- name: endpoint_mode (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    endpoint_mode: "dnsrr"
+  register: endpoint_mode_2
+  ignore_errors: true
+
+- name: endpoint_mode (changes)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    endpoint_mode: "vip"
+  register: endpoint_mode_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - endpoint_mode_1 is changed
+      - endpoint_mode_2 is not changed
+      - endpoint_mode_3 is changed
+  when: docker_py_version is version('3.0.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - endpoint_mode_1 is failed
+      - "'Minimum version required' in endpoint_mode_1.msg"
+  when: docker_py_version is version('3.0.0', '<')
+
+####################################################################
+## env #############################################################
+####################################################################
+
+- name: env
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    env:
+      - "TEST1=val1"
+      - "TEST2=val2"
+  register: env_1
+
+- name: env (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    env:
+      TEST1: val1
+      TEST2: val2
+  register: env_2
+
+- name: env (changes)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    env:
+      - "TEST1=val1"
+      - "TEST2=val3"
+  register: env_3
+
+- name: env (order idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    env:
+      - "TEST2=val3"
+      - "TEST1=val1"
+  register: env_4
+
+- name: env (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    env: []
+  register: env_5
+
+- name: env (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    env: []
+  register: env_6
+
+- name: env (fail unwrapped values)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env:
+      TEST1: true
+  register: env_7
+  ignore_errors: true
+
+- name: env (fail invalid formatted string)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env:
+      - "TEST1=val3"
+      - "TEST2"
+  register: env_8
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - env_1 is changed
+      - env_2 is not changed
+      - env_3 is changed
+      - env_4 is not changed
+      - env_5 is changed
+      - env_6 is not changed
+      - env_7 is failed
+      - env_8 is failed
+
+####################################################################
+## env_files #######################################################
+####################################################################
+
+- name: Copy env-files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ remote_tmp_dir }}/{{ item }}"
+  loop:
+    - env-file-1
+    - env-file-2
+
+- name: env_files
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files:
+      - "{{ remote_tmp_dir }}/env-file-1"
+  register: env_file_1
+
+- name: env_files (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files:
+      - "{{ remote_tmp_dir }}/env-file-1"
+  register: env_file_2
+
+- name: env_files (more items)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files:
+      - "{{ remote_tmp_dir }}/env-file-1"
+      - "{{ remote_tmp_dir }}/env-file-2"
+  register: env_file_3
+
+- name: env_files (order)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files:
+      - "{{ remote_tmp_dir }}/env-file-2"
+      - "{{ remote_tmp_dir }}/env-file-1"
+  register: env_file_4
+
+- name: env_files (multiple idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files:
+      - "{{ remote_tmp_dir }}/env-file-2"
+      - "{{ remote_tmp_dir }}/env-file-1"
+  register: env_file_5
+
+- name: env_files (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files: []
+  register: env_file_6
+
+- name: env_files (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    env_files: []
+  register: env_file_7
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - env_file_1 is changed
+      - env_file_2 is not changed
+      - env_file_3 is changed
+      - env_file_4 is changed
+      - env_file_5 is not changed
+      - env_file_6 is changed
+      - env_file_7 is not changed
+
+###################################################################
+## force_update ###################################################
+###################################################################
+
+- name: force_update
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    args:
+      - sleep
+      - "3600"
+    force_update: true
+  register: force_update_1
+  ignore_errors: true
+
+- name: force_update (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    args:
+      - sleep
+      - "3600"
+    force_update: true
+  register: force_update_2
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - force_update_1 is changed
+      - force_update_2 is changed
+  when: docker_py_version is version('2.1.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - force_update_1 is failed
+      - "'Minimum version required' in force_update_1.msg"
+  when: docker_py_version is version('2.1.0', '<')
+
+####################################################################
+## groups ##########################################################
+####################################################################
+
+- name: groups
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    groups:
+      - "1234"
+      - "5678"
+  register: groups_1
+  ignore_errors: true
+
+- name: groups (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    groups:
+      - "1234"
+      - "5678"
+  register: groups_2
+  ignore_errors: true
+
+- name: groups (order idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    groups:
+      - "5678"
+      - "1234"
+  register: groups_3
+  ignore_errors: true
+
+- name: groups (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    groups:
+      - "1234"
+  register: groups_4
+  ignore_errors: true
+
+- name: groups (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    groups: []
+  register: groups_5
+  ignore_errors: true
+
+- name: groups (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    groups: []
+  register: groups_6
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - groups_1 is changed
+      - groups_2 is not changed
+      - groups_3 is not changed
+      - groups_4 is changed
+      - groups_5 is changed
+      - groups_6 is not changed
+  when: docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - groups_1 is failed
+      - "'Minimum version required' in groups_1.msg"
+  when: docker_py_version is version('2.6.0', '<')
+
+####################################################################
+## healthcheck #####################################################
+####################################################################
+
+- name: healthcheck
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test:
+        - CMD
+        - sleep
+        - "1"
+      timeout: 2s
+      interval: 0h0m2s3ms4us
+      retries: 2
+      start_period: 20s
+  register: healthcheck_1
+  ignore_errors: true
+
+- name: healthcheck (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test:
+        - CMD
+        - sleep
+        - 1
+      timeout: 2s
+      interval: 0h0m2s3ms4us
+      retries: 2
+      start_period: 20s
+  register: healthcheck_2
+  ignore_errors: true
+
+- name: healthcheck (changed)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test:
+        - CMD
+        - sleep
+        - "1"
+      timeout: 3s
+      interval: 0h1m2s3ms4us
+      retries: 3
+  register: healthcheck_3
+  ignore_errors: true
+
+- name: healthcheck (disabled)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test:
+        - NONE
+  register: healthcheck_4
+  ignore_errors: true
+
+- name: healthcheck (disabled, idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test:
+        - NONE
+  register: healthcheck_5
+  ignore_errors: true
+
+- name: healthcheck (string in healthcheck test, changed)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test: "sleep 1"
+  register: healthcheck_6
+  ignore_errors: true
+
+- name: healthcheck (string in healthcheck test, idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck:
+      test: "sleep 1"
+  register: healthcheck_7
+  ignore_errors: true
+
+- name: healthcheck (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck: {}
+  register: healthcheck_8
+  ignore_errors: true
+
+- name: healthcheck (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    healthcheck: {}
+  register: healthcheck_9
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - healthcheck_1 is changed
+      - healthcheck_2 is not changed
+      - healthcheck_3 is changed
+      - healthcheck_4 is changed
+      - healthcheck_5 is not changed
+      - healthcheck_6 is changed
+      - healthcheck_7 is not changed
+      - healthcheck_8 is changed
+      - healthcheck_9 is not changed
+  when: docker_api_version is version('1.29', '>=') and docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - healthcheck_1 is failed
+      - "'Minimum version required' in healthcheck_1.msg"
+  when: docker_api_version is version('1.29', '<') or docker_py_version is version('2.6.0', '<')
+
+###################################################################
+## hostname #######################################################
+###################################################################
+
+- name: hostname
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    hostname: me.example.com
+  register: hostname_1
+  ignore_errors: true
+
+- name: hostname (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    hostname: me.example.com
+  register: hostname_2
+  ignore_errors: true
+
+- name: hostname (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    hostname: me.example.org
+  register: hostname_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - hostname_1 is changed
+      - hostname_2 is not changed
+      - hostname_3 is changed
+  when: docker_py_version is version('2.2.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - hostname_1 is failed
+      - "'Minimum version required' in hostname_1.msg"
+  when: docker_py_version is version('2.2.0', '<')
+
+###################################################################
+## hosts ##########################################################
+###################################################################
+
+- name: hosts
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    hosts:
+      example.com: 1.2.3.4
+      example.org: 4.3.2.1
+  register: hosts_1
+  ignore_errors: true
+
+- name: hosts (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    hosts:
+      example.com: 1.2.3.4
+      example.org: 4.3.2.1
+  register: hosts_2
+  ignore_errors: true
+
+- name: hosts (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    hosts:
+      example.com: 1.2.3.4
+  register: hosts_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - hosts_1 is changed
+      - hosts_2 is not changed
+      - hosts_3 is changed
+  when: docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - hosts_1 is failed
+      - "'Minimum version required' in hosts_1.msg"
+  when: docker_py_version is version('2.6.0', '<')
+
+
+###################################################################
+## image ##########################################################
+###################################################################
+
+- name: image
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+  register: image_1
+
+- name: image (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+  register: image_2
+
+- name: image (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine_different }}"
+  register: image_3
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - image_1 is changed
+      - image_2 is not changed
+      - image_3 is changed
+
+####################################################################
+## labels ##########################################################
+####################################################################
+
+- name: labels
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    labels:
+      test_1: "1"
+      test_2: "2"
+  register: labels_1
+
+- name: labels (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    labels:
+      test_1: "1"
+      test_2: "2"
+  register: labels_2
+
+- name: labels (changes)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    labels:
+      test_1: "1"
+      test_2: "2"
+      test_3: "3"
+  register: labels_3
+
+- name: labels (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    labels: {}
+  register: labels_4
+
+- name: labels (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    labels: {}
+  register: labels_5
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - labels_1 is changed
+      - labels_2 is not changed
+      - labels_3 is changed
+      - labels_4 is changed
+      - labels_5 is not changed
+
+###################################################################
+## mode ###########################################################
+###################################################################
+
+- name: mode
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    mode: "replicated"
+    replicas: 1
+  register: mode_1
+
+- name: mode (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    mode: "replicated"
+    replicas: 1
+  register: mode_2
+
+- name: mode (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    mode: "global"
+    replicas: 1
+  register: mode_3
+
+- name: mode (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    mode: "replicated-job"
+    replicas: 1
+  register: mode_4
+  ignore_errors: true
+
+- name: mode (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    mode: "replicated-job"
+    replicas: 1
+  register: mode_5
+  ignore_errors: true
+
+- name: mode (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    mode: "replicated"
+    replicas: 1
+  register: mode_6
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - mode_1 is changed
+      - mode_2 is not changed
+      - mode_3 is changed
+
+- ansible.builtin.assert:
+    that:
+      - mode_4 is changed
+      - mode_5 is not changed and mode_5 is not failed
+      - mode_6 is changed
+  when: docker_api_version is version('1.41', '>=') and docker_py_version is version('6.0.0', '>=')
+
+- ansible.builtin.assert:
+    that:
+      - mode_4 is failed
+      - "'Minimum version required' in mode_4.msg"
+  when: docker_api_version is version('1.41', '<') or docker_py_version is version('6.0.0', '<')
+
+####################################################################
+## stop_grace_period ###############################################
+####################################################################
+
+- name: stop_grace_period
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    stop_grace_period: 60s
+  register: stop_grace_period_1
+
+- name: stop_grace_period (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    stop_grace_period: 60s
+  register: stop_grace_period_2
+
+- name: stop_grace_period (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    stop_grace_period: 1m30s
+  register: stop_grace_period_3
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - stop_grace_period_1 is changed
+      - stop_grace_period_2 is not changed
+      - stop_grace_period_3 is changed
+
+####################################################################
+## stop_signal #####################################################
+####################################################################
+
+- name: stop_signal
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    stop_signal: "30"
+  register: stop_signal_1
+  ignore_errors: true
+
+- name: stop_signal (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    stop_signal: "30"
+  register: stop_signal_2
+  ignore_errors: true
+
+- name: stop_signal (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    stop_signal: "9"
+  register: stop_signal_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - stop_signal_1 is changed
+      - stop_signal_2 is not changed
+      - stop_signal_3 is changed
+  when: docker_api_version is version('1.28', '>=') and docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - stop_signal_1 is failed
+      - "'Minimum version required' in stop_signal_1.msg"
+  when: docker_api_version is version('1.28', '<') or docker_py_version is version('2.6.0', '<')
+
+####################################################################
+## publish #########################################################
+####################################################################
+
+- name: publish
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: tcp
+        published_port: 60001
+        target_port: 60001
+      - protocol: udp
+        published_port: 60002
+        target_port: 60002
+  register: publish_1
+  ignore_errors: true
+
+- name: publish (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: udp
+        published_port: 60002
+        target_port: 60002
+      - published_port: 60001
+        target_port: 60001
+  register: publish_2
+  ignore_errors: true
+
+- name: publish (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: tcp
+        published_port: 60002
+        target_port: 60003
+      - protocol: udp
+        published_port: 60001
+        target_port: 60001
+  register: publish_3
+  ignore_errors: true
+
+- name: publish (mode)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: tcp
+        published_port: 60002
+        target_port: 60003
+        mode: host
+      - protocol: udp
+        published_port: 60001
+        target_port: 60001
+        mode: host
+  register: publish_4
+  ignore_errors: true
+
+- name: publish (mode idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: udp
+        published_port: 60001
+        target_port: 60001
+        mode: host
+      - protocol: tcp
+        published_port: 60002
+        target_port: 60003
+        mode: host
+  register: publish_5
+  ignore_errors: true
+
+- name: publish (empty)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish: []
+  register: publish_6
+  ignore_errors: true
+
+- name: publish (empty idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish: []
+  register: publish_7
+  ignore_errors: true
+
+- name: publish (publishes the same port with both protocols)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: udp
+        published_port: 60001
+        target_port: 60001
+        mode: host
+      - protocol: tcp
+        published_port: 60001
+        target_port: 60001
+        mode: host
+  register: publish_8
+  ignore_errors: true
+- name: gather service info
+  community.docker.docker_swarm_service_info:
+    name: "{{ service_name }}"
+  register: publish_8_info
+
+- name: publish (without published_port)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: udp
+        target_port: 60001
+        mode: host
+  register: publish_9
+  ignore_errors: true
+- name: gather service info
+  community.docker.docker_swarm_service_info:
+    name: "{{ service_name }}"
+  register: publish_9_info
+
+- name: publish (without published_port, idempotence)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    publish:
+      - protocol: udp
+        target_port: 60001
+        mode: host
+  register: publish_10
+  ignore_errors: true
+- name: gather service info
+  community.docker.docker_swarm_service_info:
+    name: "{{ service_name }}"
+  register: publish_10_info
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - publish_1 is changed
+      - publish_2 is not changed
+      - publish_3 is changed
+      - publish_4 is changed
+      - publish_5 is not changed
+      - publish_6 is changed
+      - publish_7 is not changed
+      - publish_8 is changed
+      - (publish_8_info.service.Endpoint.Ports | length) == 2
+      - publish_9 is changed
+      - publish_10 is not changed
+  when: docker_py_version is version('3.0.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - publish_1 is failed
+      - "'Minimum version required' in publish_1.msg"
+  when: docker_py_version is version('3.0.0', '<')
+
+###################################################################
+## read_only ######################################################
+###################################################################
+
+- name: read_only
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    read_only: true
+  register: read_only_1
+  ignore_errors: true
+
+- name: read_only (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    read_only: true
+  register: read_only_2
+  ignore_errors: true
+
+- name: read_only (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    read_only: false
+  register: read_only_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - read_only_1 is changed
+      - read_only_2 is not changed
+      - read_only_3 is changed
+  when: docker_api_version is version('1.28', '>=') and docker_py_version is version('2.6.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - read_only_1 is failed
+      - "'Minimum version required' in read_only_1.msg"
+  when: docker_api_version is version('1.28', '<') or docker_py_version is version('2.6.0', '<')
+
+###################################################################
+## replicas #######################################################
+###################################################################
+
+- name: replicas
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    replicas: 2
+  register: replicas_1
+
+- name: replicas (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    replicas: 2
+  register: replicas_2
+
+- name: replicas (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    replicas: 3
+  register: replicas_3
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - replicas_1 is changed
+      - replicas_2 is not changed
+      - replicas_3 is changed
+
+###################################################################
+# resolve_image ###################################################
+###################################################################
+
+- name: resolve_image (false)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    command: '/bin/sh -v -c "sleep 10m"'
+    resolve_image: false
+  register: resolve_image_1
+
+- name: resolve_image (false idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    command: '/bin/sh -v -c "sleep 10m"'
+    resolve_image: false
+  register: resolve_image_2
+
+- name: resolve_image (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    command: '/bin/sh -v -c "sleep 10m"'
+    resolve_image: true
+  register: resolve_image_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - resolve_image_1 is changed
+      - resolve_image_2 is not changed
+      - resolve_image_3 is changed
+  when: docker_api_version is version('1.30', '>=') and docker_py_version is version('3.2.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - resolve_image_1 is changed
+      - resolve_image_2 is not changed
+      - resolve_image_3 is failed
+      - "('version is ' ~ docker_py_version ~ ' ') in resolve_image_3.msg"
+      - "'Minimum version required is 3.2.0 ' in resolve_image_3.msg"
+  when: docker_api_version is version('1.30', '<') or docker_py_version is version('3.2.0', '<')
+
+###################################################################
+# tty #############################################################
+###################################################################
+
+- name: tty
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    tty: true
+  register: tty_1
+  ignore_errors: true
+
+- name: tty (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    tty: true
+  register: tty_2
+  ignore_errors: true
+
+- name: tty (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    tty: false
+  register: tty_3
+  ignore_errors: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - tty_1 is changed
+      - tty_2 is not changed
+      - tty_3 is changed
+  when: docker_py_version is version('2.4.0', '>=')
+- ansible.builtin.assert:
+    that:
+      - tty_1 is failed
+      - "'Minimum version required' in tty_1.msg"
+  when: docker_py_version is version('2.4.0', '<')
+
+###################################################################
+## user ###########################################################
+###################################################################
+
+- name: user
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    user: "operator"
+  register: user_1
+
+- name: user (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    user: "operator"
+  register: user_2
+
+- name: user (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    command: '/bin/sh -v -c "sleep 10m"'
+    user: "root"
+  register: user_3
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - user_1 is changed
+      - user_2 is not changed
+      - user_3 is changed
+
+####################################################################
+## working_dir #####################################################
+####################################################################
+
+- name: working_dir
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    working_dir: /tmp
+  register: working_dir_1
+
+- name: working_dir (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    working_dir: /tmp
+  register: working_dir_2
+
+- name: working_dir (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    working_dir: /
+  register: working_dir_3
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - working_dir_1 is changed
+      - working_dir_2 is not changed
+      - working_dir_3 is changed
+
+####################################################################
+## init ############################################################
+####################################################################
+
+- name: init
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: true
+  register: init_1
+
+- name: init (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: true
+  register: init_2
+
+- name: init (change)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: false
+  register: init_3
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - init_1 is changed
+      - init_2 is not changed
+      - init_3 is changed
+  when: docker_api_version is version('1.37', '>=')
+
+- ansible.builtin.assert:
+    that:
+      - init_1 is failed
+      - "('version is ' ~ docker_api_version ~'. Minimum version required is 1.37') in hosts_1.msg"
+  when: docker_api_version is version('1.37', '<')
+
+####################################################################
+## cap_drop, capabilities ##########################################
+####################################################################
+
+- name: capabilities, cap_drop
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: true
+    cap_add:
+      - sys_time
+    cap_drop:
+      - all
+  register: capabilities_1
+  ignore_errors: true
+
+- name: capabilities, cap_drop (idempotency)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: true
+    cap_add:
+      - sys_time
+    cap_drop:
+      - all
+  register: capabilities_2
+  ignore_errors: true
+  diff: true
+
+- name: capabilities, cap_drop (less)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: true
+    cap_add: []
+    cap_drop:
+      - all
+  register: capabilities_3
+  ignore_errors: true
+  diff: true
+
+- name: capabilities, cap_drop (changed)
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    image: "{{ docker_test_image_alpine }}"
+    resolve_image: false
+    init: true
+    cap_add:
+      - setgid
+    cap_drop:
+      - all
+  register: capabilities_4
+  ignore_errors: true
+  diff: true
+
+- name: cleanup
+  community.docker.docker_swarm_service:
+    name: "{{ service_name }}"
+    state: absent
+  diff: false
+
+- ansible.builtin.assert:
+    that:
+      - capabilities_1 is changed
+      - capabilities_2 is not changed
+      - capabilities_3 is changed
+      - capabilities_4 is changed
+  when: docker_api_version is version('1.41', '>=') and docker_py_version is version('5.0.3', '>=')
+
+- ansible.builtin.assert:
+    that:
+      - capabilities_1 is failed
+      - >
+        (('version is ' ~ docker_py_version ~ ' ') in capabilities_1.msg and 'Minimum version required is 5.0.3 ' in capabilities_1.msg)
+        or (('Docker API version is ' ~ docker_api_version ~ '. ') in capabilities_1.msg and 'Minimum version required is 1.41 ' in capabilities_1.msg)
+  when: docker_api_version is version('1.41', '<') or docker_py_version is version('5.0.3', '<')

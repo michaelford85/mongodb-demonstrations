@@ -1,0 +1,7 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+data/source_pdfs/
+data/chunks.jsonl
+data/pdf_manifest.jsonl

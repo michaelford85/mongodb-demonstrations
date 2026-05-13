@@ -1,0 +1,114 @@
+---
+- name: "{{ service.name }} | clone or update repo"
+  ansible.builtin.git:
+    repo: "{{ service.repo }}"
+    dest: "{{ leafy_bank_deploy_dir }}/{{ service.name }}"
+    version: "{{ service.branch | default('main') }}"
+    update: true
+    force: true
+
+# ── Seed sample data ───────────────────────────────────────────────────────────
+# Run immediately after clone so the repo files are guaranteed to exist.
+# Files are named <database>.<collection>.json (MongoDB Extended JSON arrays).
+# --mode upsert makes this idempotent: safe to re-run on every deploy.
+
+- name: "{{ service.name }} | find seed data files"
+  ansible.builtin.find:
+    paths: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ service.seed_data_dir }}"
+    patterns: "*.json"
+  when: service.seed_data_dir is defined
+  register: _svc_seed_files
+
+- name: "{{ service.name }} | import seed data"
+  ansible.builtin.command:
+    argv:
+      - mongoimport
+      - "--uri"
+      - "{{ mongodb_uri }}"
+      - "--db"
+      - "{{ (svc_seed_file | basename).split('.')[0] }}"
+      - "--collection"
+      - "{{ (svc_seed_file | basename).split('.')[1] }}"
+      - "--file"
+      - "{{ svc_seed_file }}"
+      - "--jsonArray"
+      - "--mode"
+      - "upsert"
+  loop: "{{ _svc_seed_files.files | default([]) | map(attribute='path') | list }}"
+  loop_control:
+    loop_var: svc_seed_file
+    label: "{{ svc_seed_file | basename }}"
+  register: _svc_import_result
+  changed_when: >-
+    (_svc_import_result.stderr | regex_search('[1-9][0-9]* document')) is not none
+  when: service.seed_data_dir is defined and (_svc_seed_files.files | default([]) | length > 0)
+
+- name: "{{ service.name }} | show seed import summary"
+  ansible.builtin.debug:
+    msg: "{{ svc_result.svc_seed_file | basename }}: {{ svc_result.stderr | regex_search('[0-9]+ document[^|]*') | default('(no output)') }}"
+  loop: "{{ _svc_import_result.results | default([]) }}"
+  loop_control:
+    loop_var: svc_result
+    label: "{{ svc_result.svc_seed_file | basename }}"
+  when: service.seed_data_dir is defined and (_svc_import_result.results | default([]) | length > 0)
+
+# ── PDF copy (chatbot / pdf-rag services) ─────────────────────────────────────
+# If the service declares a pdf_dest_dir and chatbot_pdf_path is set in secrets,
+# copy the PDF into place before the Docker build so it gets baked into the image.
+
+- name: "{{ service.name }} | ensure PDF destination directory exists"
+  ansible.builtin.file:
+    path: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ service.pdf_dest_dir }}"
+    state: directory
+    mode: "0755"
+  when: service.pdf_dest_dir is defined and (chatbot_pdf_path | default('')) != ''
+
+- name: "{{ service.name }} | copy PDF into repo before Docker build"
+  ansible.builtin.copy:
+    src: "{{ chatbot_pdf_path }}"
+    dest: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ service.pdf_dest_dir }}/{{ chatbot_pdf_path | basename }}"
+    mode: "0644"
+  when: service.pdf_dest_dir is defined and (chatbot_pdf_path | default('')) != ''
+
+- name: "{{ service.name }} | skip — no PDF available (chatbot_pdf_path not set)"
+  ansible.builtin.debug:
+    msg: >-
+      Skipping {{ service.name }}: set chatbot_pdf_path in vars/secrets.yml
+      to point at a PDF and re-run to deploy this service.
+  when: service.pdf_dest_dir is defined and (chatbot_pdf_path | default('')) == ''
+
+# ── Port patching and container start ─────────────────────────────────────────
+
+- name: "{{ service.name }} | patch host port in docker-compose.yml"
+  ansible.builtin.replace:
+    path: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/docker-compose.yml"
+    regexp: '- "\d+:{{ service.internal_port }}"'
+    replace: '- "{{ service.port }}:{{ service.internal_port }}"'
+
+- name: "{{ service.name }} | apply config file patches"
+  ansible.builtin.replace:
+    path: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ patch.path }}"
+    regexp: "{{ patch.regexp }}"
+    replace: "{{ patch.replace }}"
+  loop: "{{ service.file_patches | default([]) }}"
+  loop_control:
+    loop_var: patch
+    label: "{{ patch.path }}"
+
+- name: "{{ service.name }} | write .env file"
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ leafy_bank_deploy_dir }}/{{ service.name }}/{{ service.env_file }}"
+    mode: "0600"
+
+- name: "{{ service.name }} | build and start container"
+  community.docker.docker_compose_v2:
+    project_src: "{{ leafy_bank_deploy_dir }}/{{ service.name }}"
+    build: always
+    state: present
+  register: _compose_result
+
+- name: "{{ service.name }} | show compose result"
+  ansible.builtin.debug:
+    msg: "{{ service.name }} is up on port {{ service.port }}"
+  when: _compose_result is changed

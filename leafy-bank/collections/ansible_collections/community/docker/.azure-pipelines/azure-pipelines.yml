@@ -1,0 +1,329 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+      - stable-*
+
+pr:
+  autoCancel: true
+  branches:
+    include:
+      - main
+      - stable-*
+
+schedules:
+  - cron: 0 9 * * *
+    displayName: Nightly
+    always: true
+    branches:
+      include:
+        - main
+  - cron: 0 12 * * 0
+    displayName: Weekly (old stable branches)
+    always: true
+    branches:
+      include:
+        - stable-4
+
+variables:
+  - name: checkoutPath
+    value: ansible_collections/community/docker
+  - name: coverageBranches
+    value: main
+  - name: entryPoint
+    value: tests/utils/shippable/shippable.sh
+  - name: fetchDepth
+    value: 0
+
+resources:
+  containers:
+    - container: default
+      image: quay.io/ansible/azure-pipelines-test-container:7.0.0
+
+pool: Standard
+
+stages:
+
+### Sanity & units
+  - stage: Ansible_devel
+    displayName: Sanity & Units devel
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: Sanity
+              test: 'devel/sanity/1'
+            - name: Units
+              test: 'devel/units/1'
+  - stage: Ansible_2_21
+    displayName: Sanity & Units 2.21
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: Sanity
+              test: '2.21/sanity/1'
+            - name: Units
+              test: '2.21/units/1'
+  - stage: Ansible_2_20
+    displayName: Sanity & Units 2.20
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: Sanity
+              test: '2.20/sanity/1'
+            - name: Units
+              test: '2.20/units/1'
+  - stage: Ansible_2_19
+    displayName: Sanity & Units 2.19
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: Sanity
+              test: '2.19/sanity/1'
+            - name: Units
+              test: '2.19/units/1'
+  - stage: Ansible_2_18
+    displayName: Sanity & Units 2.18
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: Sanity
+              test: '2.18/sanity/1'
+            - name: Units
+              test: '2.18/units/1'
+
+### Docker
+  - stage: Docker_devel
+    displayName: Docker devel
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: devel/linux/{0}
+          targets:
+            - name: Fedora 43
+              test: fedora43
+            - name: Ubuntu 22.04
+              test: ubuntu2204
+            - name: Ubuntu 24.04
+              test: ubuntu2404
+            - name: Alpine 3.23
+              test: alpine323
+          groups:
+            - 4
+            - 5
+  - stage: Docker_2_21
+    displayName: Docker 2.21
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.21/linux/{0}
+          targets:
+            - name: Fedora 43
+              test: fedora43
+            # - name: Ubuntu 22.04
+            #   test: ubuntu2204
+            - name: Ubuntu 24.04
+              test: ubuntu2404
+            # - name: Alpine 3.23
+            #   test: alpine323
+          groups:
+            - 4
+            - 5
+  - stage: Docker_2_20
+    displayName: Docker 2.20
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.20/linux/{0}
+          targets:
+            - name: Fedora 42
+              test: fedora42
+            - name: Alpine 3.22
+              test: alpine322
+          groups:
+            - 4
+            - 5
+  - stage: Docker_2_19
+    displayName: Docker 2.19
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.19/linux/{0}
+          targets:
+            - name: Fedora 41
+              test: fedora41
+            - name: Alpine 3.21
+              test: alpine321
+          groups:
+            - 4
+            - 5
+  - stage: Docker_2_18
+    displayName: Docker 2.18
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.18/linux/{0}
+          targets:
+            - name: Fedora 40
+              test: fedora40
+            - name: Ubuntu 22.04
+              test: ubuntu2204
+            - name: Alpine 3.20
+              test: alpine320
+          groups:
+            - 4
+            - 5
+
+### Community Docker
+  - stage: Docker_community_devel
+    displayName: Docker (community images) devel
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: devel/linux-community/{0}
+          targets:
+            - name: Debian 11 Bullseye
+              test: debian-bullseye/3.9
+            - name: Debian 12 Bookworm
+              test: debian-bookworm/3.11
+            - name: Debian 13 Trixie
+              test: debian-13-trixie/3.13
+            - name: ArchLinux
+              test: archlinux/3.14
+          groups:
+            - 4
+            - 5
+
+### Remote
+  - stage: Remote_devel
+    displayName: Remote devel
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: devel/{0}
+          targets:
+            - name: RHEL 10.1 with Docker SDK, urllib3, requests from sources
+              test: rhel/10.1-dev-latest
+            - name: RHEL 9.7
+              test: rhel/9.7
+            # For some reason, Ubuntu 24.04 is *extremely* slower than RHEL 9.6
+            # - name: Ubuntu 24.04
+            #   test: ubuntu/24.04
+          groups:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+  - stage: Remote_2_21
+    displayName: Remote 2.21
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.21/{0}
+          targets:
+            - name: RHEL 10.1
+              test: rhel/10.1
+            # - name: RHEL 9.7
+            #   test: rhel/9.7
+          groups:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+  - stage: Remote_2_20
+    displayName: Remote 2.20
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.20/{0}
+          targets:
+            - name: RHEL 9.7
+              test: rhel/9.7
+          groups:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+  - stage: Remote_2_19
+    displayName: Remote 2.19
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.19/{0}
+          targets:
+            - name: Ubuntu 22.04
+              test: ubuntu/22.04
+          groups:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+  - stage: Remote_2_18
+    displayName: Remote 2.18
+    dependsOn: []
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          testFormat: 2.18/{0}
+          targets:
+            - name: RHEL 9.7
+              test: rhel/9.7
+          groups:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+
+  ## Finally
+
+  - stage: Summary
+    condition: succeededOrFailed()
+    dependsOn:
+      - Ansible_devel
+      - Ansible_2_21
+      - Ansible_2_20
+      - Ansible_2_19
+      - Ansible_2_18
+      - Remote_devel
+      - Remote_2_21
+      - Remote_2_20
+      - Remote_2_19
+      - Remote_2_18
+      - Docker_devel
+      - Docker_2_21
+      - Docker_2_20
+      - Docker_2_19
+      - Docker_2_18
+      - Docker_community_devel
+    jobs:
+      - template: templates/coverage.yml

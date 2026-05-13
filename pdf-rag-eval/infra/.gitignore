@@ -1,0 +1,13 @@
+.env
+.terraform/
+# .terraform.lock.hcl SHOULD be committed — do not ignore it.
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

@@ -1,0 +1,26 @@
+{
+  "name": "chunks_vector_idx",
+  "type": "vectorSearch",
+  "definition": {
+    "fields": [
+      {
+        "type": "vector",
+        "path": "embedding",
+        "numDimensions": 1024,
+        "similarity": "cosine"
+      },
+      {
+        "type": "filter",
+        "path": "document_id"
+      },
+      {
+        "type": "filter",
+        "path": "department"
+      },
+      {
+        "type": "filter",
+        "path": "page_number"
+      }
+    ]
+  }
+}

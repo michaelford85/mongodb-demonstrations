@@ -1,0 +1,114 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Leafy Bank — deploy playbook
+#
+# Usage examples:
+#
+#   # Deploy core services (accounts + transactions) and the UI — the default.
+#   ansible-playbook site.yml
+#
+#   # Deploy specific optional services on top of the core set.
+#   ansible-playbook site.yml -e "extra_services=[chatbot,openfinance]"
+#
+#   # Deploy everything.
+#   ansible-playbook site.yml -e "deploy_all=true"
+#
+#   # Deploy a completely custom list (replaces the default core + extra logic).
+#   ansible-playbook site.yml -e "deploy_services=[accounts,transactions,chatbot]"
+#
+# Prerequisites:
+#   1. Copy vars/secrets.example.yml → vars/secrets.yml and fill in credentials.
+#   2. Docker must be running on the local machine.
+#   3. Install required Ansible collections:
+#        ansible-galaxy collection install community.docker
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Deploy Leafy Bank services
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - vars/secrets.yml
+
+  vars:
+    # Build the effective service list.
+    # Priority: explicit deploy_services > deploy_all flag > core + extra_services.
+    _core_names: "{{ leafy_bank_services | selectattr('core', 'equalto', true) | map(attribute='name') | list }}"
+    # Coerce to list — handles both -e "extra_services=[a,b]" (string) and proper list types.
+    _extra_names: >-
+      {{
+        extra_services | default([])
+        if (extra_services is not defined or extra_services is not string)
+        else extra_services | regex_replace('^\[|\]$', '') | split(',') | map('trim') | list
+      }}
+    _all_names: "{{ leafy_bank_services | map(attribute='name') | list }}"
+
+    _effective_names: >-
+      {{
+        deploy_services
+        if deploy_services is defined
+        else (
+          _all_names
+          if (deploy_all | default(false) | bool)
+          else (_core_names + _extra_names) | unique
+        )
+      }}
+
+    _selected_services: >-
+      {{
+        leafy_bank_services
+        | selectattr('name', 'in', _effective_names)
+        | list
+      }}
+
+    _deploy_ui: "{{ deploy_ui | default(true) | bool }}"
+
+  pre_tasks:
+    - name: Validate secrets file exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/vars/secrets.yml"
+      register: _secrets_stat
+      failed_when: not _secrets_stat.stat.exists
+      tags: always
+
+    - name: Ensure services directory exists
+      ansible.builtin.file:
+        path: "{{ leafy_bank_deploy_dir }}"
+        state: directory
+        mode: "0755"
+      tags: always
+
+    - name: Show deployment plan
+      ansible.builtin.debug:
+        msg:
+          - "Services to deploy: {{ _selected_services | map(attribute='name') | join(', ') }}"
+          - "Deploy UI:          {{ _deploy_ui }}"
+      tags: always
+
+  tasks:
+    - name: Set up MongoDB databases and collections
+      ansible.builtin.include_role:
+        name: mongodb_setup
+      vars:
+        setup_services: "{{ _selected_services }}"
+      tags:
+        - mongodb
+        - backends
+
+    - name: Deploy backend services
+      ansible.builtin.include_role:
+        name: docker_service
+      vars:
+        service: "{{ item }}"
+      loop: "{{ _selected_services }}"
+      loop_control:
+        label: "{{ item.name }}"
+      tags:
+        - backends
+
+    - name: Deploy Leafy Bank UI
+      ansible.builtin.include_role:
+        name: leafy_bank_ui
+      when: _deploy_ui
+      tags:
+        - ui
