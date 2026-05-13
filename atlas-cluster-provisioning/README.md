@@ -8,9 +8,11 @@ This folder contains a **Terraform-based script** for spinning up and tearing do
 
 | Resource | Description |
 |---|---|
-| `mongodbatlas_advanced_cluster` | A dedicated replica set cluster (M10+) inside an existing Atlas project |
+| `mongodbatlas_advanced_cluster` | A dedicated replica set cluster (M10+) inside an existing Atlas project, with Compute Auto-Scale enabled by default |
 | `mongodbatlas_database_user` | An `atlasAdmin` user for connecting to the cluster |
 | `mongodbatlas_search_deployment` | Dedicated Atlas Search nodes *(only when `CLUSTER_SEARCH_NODES > 0`)* |
+
+Compute Auto-Scale is enabled with `min == max == CLUSTER_INSTANCE_SIZE` by default — the feature is on (which Atlas Automated Embedding / `autoEmbed` vector search indexes require) but the cluster does not actually scale unless you raise `CLUSTER_COMPUTE_MAX_INSTANCE_SIZE`.
 
 Everything is destroyed cleanly by `teardown.sh` — no manual cleanup in the Atlas UI is needed.
 
@@ -62,6 +64,11 @@ CLUSTER_NUM_REGIONS=1
 CLUSTER_REGIONS='[{"region_name":"US_EAST_1","electable_nodes":3,"priority":7}]'
 
 CLUSTER_SEARCH_NODES=0        # 0 = shared search; >0 = dedicated search nodes
+
+# Compute Auto-Scale. Required by Atlas Automated Embedding (autoEmbed).
+# Leave the max blank to pin max = CLUSTER_INSTANCE_SIZE (cheapest).
+CLUSTER_COMPUTE_AUTOSCALE_ENABLED=true
+CLUSTER_COMPUTE_MAX_INSTANCE_SIZE=
 
 DB_ADMIN_USER=admin
 DB_ADMIN_PASSWORD=<strong-password>
@@ -160,5 +167,8 @@ The `CLUSTER_REGIONS` value in `.env` must be valid JSON. Validate it with:
 echo "$CLUSTER_REGIONS" | jq .
 ```
 
-**Cluster stuck provisioning**  
+**Cluster stuck provisioning**
 Atlas clusters can occasionally take longer than expected. Check the Atlas UI → Clusters page for status. Terraform will keep waiting.
+
+**`Automated Embedding on cluster '<name>' requires Compute Auto-Scale enabled`**
+The cluster was provisioned (or modified) with `CLUSTER_COMPUTE_AUTOSCALE_ENABLED=false`, or pre-dates this Terraform's auto-scale support. Set `CLUSTER_COMPUTE_AUTOSCALE_ENABLED=true` in `.env` and re-run `./deploy.sh` — Atlas will enable Compute Auto-Scale in place on the existing cluster.

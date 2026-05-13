@@ -51,6 +51,8 @@ export TF_VAR_cluster_instance_size="$CLUSTER_INSTANCE_SIZE"
 export TF_VAR_mongodb_version="$MONGODB_VERSION"
 export TF_VAR_cluster_regions="$CLUSTER_REGIONS"
 export TF_VAR_cluster_search_nodes="$CLUSTER_SEARCH_NODES"
+export TF_VAR_cluster_compute_autoscale_enabled="${CLUSTER_COMPUTE_AUTOSCALE_ENABLED:-true}"
+export TF_VAR_cluster_compute_max_instance_size="${CLUSTER_COMPUTE_MAX_INSTANCE_SIZE:-}"
 export TF_VAR_db_admin_user="$DB_ADMIN_USER"
 export TF_VAR_db_admin_password="$DB_ADMIN_PASSWORD"
 

@@ -56,6 +56,18 @@ variable "cluster_search_nodes" {
   default     = 0
 }
 
+variable "cluster_compute_autoscale_enabled" {
+  description = "Enable Atlas Compute Auto-Scale. Required for Atlas Automated Embedding (autoEmbed vector search indexes)."
+  type        = bool
+  default     = true
+}
+
+variable "cluster_compute_max_instance_size" {
+  description = "Ceiling for Compute Auto-Scale. Empty string (default) pins max = cluster_instance_size, enabling the feature without actually scaling."
+  type        = string
+  default     = ""
+}
+
 variable "db_admin_user" {
   description = "Username for the Atlas admin database user"
   type        = string
