@@ -1,125 +1,36 @@
-# mongodb-demonstrations
+# MongoDB Demonstrations
 
-This repository is a curated collection of **MongoDB Atlas demonstrations** that I use for learning, experimentation, customer demos, and technical storytelling. Each folder is designed to be **self-contained**, focused on a specific Atlas capability or integration pattern.
+A growing collection of self-contained demos for **MongoDB Atlas** — covering provisioning, replication and sharding, search and vector search, encryption, change streams, retrieval-augmented generation, agentic AI, and several head-to-head comparisons against other cloud databases.
 
-The goal of this repo is not to provide production-ready applications, but rather **clear, minimal, and explainable demos** that highlight *why* and *how* you would use specific MongoDB Atlas features.
+Each subfolder is independent and ships with its own README, `.env.example`, dependencies, and run instructions. Pick the topic you're interested in and start there.
 
----
+## Prerequisites
 
-## Repository Structure
+Most demos connect to a running Atlas cluster. Two folders exist to provision one declaratively via Terraform — start with these if you don't already have a cluster handy:
 
-Each top-level folder represents an independent demonstration:
+| Folder | Purpose |
+|---|---|
+| **[`atlas-cluster-provisioning/`](./atlas-cluster-provisioning/)** | Dedicated replica-set cluster (single- or multi-region), with optional Atlas Search nodes and Compute Auto-Scale enabled by default (the prerequisite for Atlas Automated Embedding). |
+| **[`atlas-sharded-cluster-provisioning/`](./atlas-sharded-cluster-provisioning/)** | Companion module for `SHARDED` and `GEOSHARDED` (Global Cluster) topologies with per-shard region control. |
 
-```
-mongodb-demonstrations/
-├── api-examples/
-├── atlas-oauth2-authentication/
-├── credentials/
-├── full-text-search/
-├── voyageai-vector-embeddings/
-└── README.md
-```
+Each provisioner has its own `.env.example`, a one-line `./deploy.sh`, and a matching `./teardown.sh`. Demos that need other infrastructure — Azure Cosmos DB, Aurora PostgreSQL with pgvector, and others — carry their own provisioning folder alongside the demo that uses it.
 
----
-## Python Dependencies
+## Using a demo
 
-Each demonstration folder will include its **own ****requirements.txt**** file**.
-
-This is intentional and by design:
-
-- Each demo is self-contained
-- Dependencies are explicit and minimal
-- You can run or demo folders independently
-- No global dependency coupling across demos
-
-Example:
-
-```
-cd full-text-search
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```bash
+cd <demo-folder>            # any folder in this repo
+cat README.md               # walkthrough, setup, and run order
+cp .env.example .env        # fill in connection details
+# then follow the folder's README for installs and run commands
 ```
 
----
-Below is a brief description of what each folder contains.
+## Conventions
 
----
+- **Python** demos use [PyMongo](https://pymongo.readthedocs.io/) and [`python-dotenv`](https://pypi.org/project/python-dotenv/); `.env` is the single source of truth for connection strings and credentials.
+- **Sharding** scripts are written in [`mongosh`](https://www.mongodb.com/docs/mongodb-shell/) where the shell's helpers are idiomatic (`sh.shardCollection`, `sh.updateZoneKeyRange`, and friends).
+- **Infrastructure** is Terraform where the target cloud has a provider; Bicep for Azure-only resources; Ansible for orchestration of multi-service local deployments.
+- Secrets stay out of git: every folder's `.gitignore` excludes `.env`, and `.env.example` files contain placeholders only.
 
-## Folder Overview
+## Who this is for
 
-### `api-examples/`
-
-Demonstrations focused on interacting with MongoDB Atlas and MongoDB data using APIs and SDKs.
-
-Typical examples may include:
-
-- Basic CRUD operations via drivers
-- REST-style service patterns backed by MongoDB
-- Lightweight FastAPI or Flask examples
-- Atlas Admin API usage
-
----
-
-### `atlas-oauth2-authentication/`
-
-Examples showing how to authenticate to MongoDB Atlas using **OAuth 2.0** instead of traditional username/password credentials.
-
-This folder is intended to demonstrate:
-
-- Federated authentication concepts
-- Integration with external identity providers (IdPs)
-- Token-based authentication flows
-- Secure, enterprise-friendly access patterns
-
----
-
-### `credentials/`
-
-Patterns and examples for **secure credential handling** when working with MongoDB Atlas.
-
-This may include:
-
-- Environment-variable based configuration
-- `.env` file usage
-- Secret management patterns
-- Clear examples of what *not* to commit to source control
-
----
-
-### `full-text-search/`
-
-Demonstrations of **MongoDB Atlas Search**, including full-text and relevance-based querying.
-
-Typical scenarios include:
-
-- Text search with scoring
-- Filters and facets
-- Synonyms and analyzers
-- Search vs. traditional query comparisons
-
----
-
-### `voyageai-vector-embeddings/`
-
-Examples focused on **vector embeddings and semantic search** using MongoDB Atlas Vector Search.
-
-This folder highlights:
-
-- Generating embeddings with VoyageAI
-- Storing and indexing vector data in Atlas
-- Performing semantic and hybrid search
-- Foundations for RAG-style applications
-
----
-
-## Notes
-
-- These demos are intentionally lightweight and focused
-- Code favors clarity over cleverness
-- Expect this repository to grow over time as new Atlas features and integrations are added
-
-If you are browsing this repo for learning or demo inspiration, feel free to start with whichever folder aligns best with your use case.
-
-More detailed documentation lives **inside each folder**.
-
+Solutions architects validating a design, developers prototyping an integration, customers evaluating a feature, or anyone curious about how Atlas behaves in practice rather than only on paper. Where a demo compares Atlas to another platform (PostgreSQL + pgvector, Cosmos DB, and others), the comparison is set up symmetrically so the trade-offs are visible from real runs.
