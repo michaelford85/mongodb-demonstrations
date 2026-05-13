@@ -19,8 +19,10 @@ class Settings:
     embed_dim: int
     row_count: int
     atlas_vector_index: str
+    atlas_search_index: str
     voyage_api_key: str
     voyage_model: str
+    voyage_rerank_model: str
 
 
 def _require(name: str) -> str:
@@ -54,8 +56,10 @@ def load_settings() -> Settings:
         embed_dim=embed_dim,
         row_count=row_count,
         atlas_vector_index=os.getenv("ATLAS_VECTOR_INDEX", "accounts_vector_idx"),
+        atlas_search_index=os.getenv("ATLAS_SEARCH_INDEX", "accounts_bm25_idx"),
         voyage_api_key=_require("VOYAGE_API_KEY"),
         voyage_model=os.getenv("VOYAGE_MODEL", "voyage-3-large"),
+        voyage_rerank_model=os.getenv("VOYAGE_RERANK_MODEL", "rerank-2.5"),
     )
 
 

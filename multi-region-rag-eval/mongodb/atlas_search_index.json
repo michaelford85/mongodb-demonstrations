@@ -1,0 +1,22 @@
+{
+  "name": "accounts_bm25_idx",
+  "type": "search",
+  "definition": {
+    "mappings": {
+      "dynamic": false,
+      "fields": {
+        "account_name": {
+          "type": "string",
+          "analyzer": "lucene.standard"
+        },
+        "product_group": {
+          "type": "string",
+          "analyzer": "lucene.standard"
+        },
+        "region": {
+          "type": "token"
+        }
+      }
+    }
+  }
+}
