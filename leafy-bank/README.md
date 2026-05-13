@@ -95,8 +95,8 @@ ansible-playbook site.yml -e "extra_services=[chatbot]"
 The chatbot is a classic **Retrieval-Augmented Generation (RAG)** pipeline, in contrast to the agentic ReAct pattern used by the Capital Markets assistants:
 
 1. **Ingest** — on first startup the service chunks the PDF into overlapping text segments, converts each page to an image for visual display, and stores both in the `leafy_bank_pdf_rag` MongoDB database.
-2. **Embed** — each chunk is embedded using Amazon Bedrock's **Cohere `embed-english-v3`** model (1536 dimensions) and stored as a vector in Atlas.
-3. **Retrieve** — when a user asks a question, the query is embedded with the same model and the nearest chunks are retrieved via **Atlas Vector Search**.
+2. **Embed** — each chunk is embedded using Amazon Bedrock's **Cohere `embed-english-v3`** model (1536 dimensions) and stored as a document in Atlas.
+3. **Retrieve** — when a user asks a question, the query is embedded with the same model and the nearest chunks are found using a **local HNSW index** (managed by [Superduper](https://superduper.io), persisted on disk).
 4. **Generate** — the retrieved chunks are injected into the prompt context and **Claude Haiku** (via Bedrock) generates a concise, grounded answer. The relevant PDF page image is shown alongside the response.
 
 **Example questions to ask:**
@@ -109,9 +109,10 @@ The chatbot is a classic **Retrieval-Augmented Generation (RAG)** pipeline, in c
 **MongoDB capabilities on show:**
 | Capability | Where you see it |
 |---|---|
-| **Atlas Vector Search** | Semantic retrieval of relevant document chunks at query time |
-| **Document model** | PDF chunks, page images, and embeddings stored together as BSON documents |
+| **Document model** | PDF chunks, page images, and vector embeddings stored together as BSON documents in Atlas |
 | **Flexible schema** | Superduper framework stores heterogeneous artifact types (text, binary images, vectors) in one collection |
+
+> **Note on vector search:** this service uses [Superduper's](https://superduper.io) local HNSW index (stored on disk in the artifact store) rather than Atlas Vector Search. Similarity search runs inside the container. The embeddings themselves are persisted in MongoDB.
 
 > **AWS credentials required** — Bedrock is used for both embedding and chat completion. Add `aws_*` to `vars/secrets.yml` before deploying. The same credentials used for Capital Markets services work here.
 
@@ -295,6 +296,32 @@ ansible-playbook teardown.yml -e "deploy_services=[cm-loaders,cm-agents]"
 ```
 
 The teardown removes containers, images, and volumes but leaves the cloned repos in `services/` intact so the next deploy skips the git clone step.
+
+---
+
+## Clearing databases
+
+`teardown.yml` only removes Docker artefacts — it never touches Atlas. Use `clear_databases.yml` to drop the MongoDB databases for selected services.
+
+> **Warning:** multiple services share databases. `accounts`, `transactions`, and `openfinance` all write to `leafy_bank`; all `cm-*` services share `agentic_capital_markets`. Dropping a shared database affects every service that uses it.
+
+**Drop databases for specific services:**
+```bash
+ansible-playbook clear_databases.yml -e "deploy_services=[chatbot]"
+ansible-playbook clear_databases.yml -e "deploy_services=[cm-loaders,cm-agents,cm-market-assistant,cm-crypto-assistant]"
+```
+
+**Drop databases for all services:**
+```bash
+ansible-playbook clear_databases.yml -e "deploy_all=true"
+```
+
+**Skip the confirmation prompt** (useful in scripts):
+```bash
+ansible-playbook clear_databases.yml -e "deploy_all=true" -e "force=true"
+```
+
+The playbook prints the list of databases to be dropped and asks for confirmation before doing anything, unless `force=true` is passed.
 
 ---
 

@@ -1,0 +1,168 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Leafy Bank — clear databases playbook
+#
+# Permanently drops the MongoDB databases for selected services.
+# Uses the same service-selection logic as site.yml and teardown.yml.
+#
+# NOTE: Multiple services share databases (e.g. accounts + transactions +
+# openfinance all write to 'leafy_bank'; all cm-* services write to
+# 'agentic_capital_markets'). Dropping a shared database affects every service
+# that uses it, regardless of which service you selected.
+#
+# Usage:
+#   # Drop databases for core services (accounts + transactions → leafy_bank)
+#   ansible-playbook clear_databases.yml
+#
+#   # Drop databases for specific services
+#   ansible-playbook clear_databases.yml -e "deploy_services=[chatbot]"
+#   ansible-playbook clear_databases.yml -e "deploy_services=[cm-loaders,cm-agents,cm-market-assistant,cm-crypto-assistant]"
+#
+#   # Drop databases for all services
+#   ansible-playbook clear_databases.yml -e "deploy_all=true"
+#
+#   # Skip the confirmation prompt (useful in scripts)
+#   ansible-playbook clear_databases.yml -e "force=true" -e "deploy_all=true"
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Clear MongoDB databases for selected Leafy Bank services
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - vars/secrets.yml
+
+  vars:
+    _core_names: "{{ leafy_bank_services | selectattr('core', 'equalto', true) | map(attribute='name') | list }}"
+    _extra_names: >-
+      {{
+        extra_services | default([])
+        if (extra_services is not defined or extra_services is not string)
+        else extra_services | regex_replace('^\[|\]$', '') | split(',') | map('trim') | list
+      }}
+    _all_names: "{{ leafy_bank_services | map(attribute='name') | list }}"
+
+    _effective_names: >-
+      {{
+        deploy_services
+        if deploy_services is defined
+        else (
+          _all_names
+          if (deploy_all | default(false) | bool)
+          else (_core_names + _extra_names) | unique
+        )
+      }}
+
+    _selected_services: >-
+      {{
+        leafy_bank_services
+        | selectattr('name', 'in', _effective_names)
+        | list
+      }}
+
+    # Collect unique database names from all selected services that have a
+    # db_setup block. Services without one (e.g. cm-mcp) are skipped.
+    _databases_to_drop: >-
+      {{
+        _selected_services
+        | selectattr('db_setup', 'defined')
+        | map(attribute='db_setup')
+        | map(attribute='collections_by_database')
+        | flatten
+        | map(attribute='database')
+        | unique
+        | list
+      }}
+
+  tasks:
+    - name: Abort early if no databases would be dropped
+      ansible.builtin.fail:
+        msg: >-
+          No databases found for the selected services
+          ({{ _effective_names | join(', ') }}).
+          Check that the service names are correct and that they have a db_setup block.
+      when: _databases_to_drop | length == 0
+
+    - name: Show databases that will be dropped
+      ansible.builtin.debug:
+        msg: |
+          Services selected : {{ _effective_names | join(', ') }}
+          Databases to drop : {{ _databases_to_drop | join(', ') }}
+
+    - name: Confirm before dropping
+      ansible.builtin.pause:
+        prompt: >-
+          WARNING: this will permanently delete the databases listed above
+          from your Atlas cluster. Type 'yes' to continue, or press Ctrl+C to abort
+      register: _confirm
+      when: not (force | default(false) | bool)
+
+    - name: Abort if not confirmed
+      ansible.builtin.fail:
+        msg: "Aborted — type 'yes' to confirm."
+      when:
+        - not (force | default(false) | bool)
+        - _confirm.user_input | lower != 'yes'
+
+    - name: Ensure pymongo is installed
+      ansible.builtin.pip:
+        name: pymongo
+        state: present
+
+    - name: Write database drop script
+      ansible.builtin.copy:
+        dest: /tmp/leafy_bank_clear_databases.py
+        mode: "0700"
+        content: |
+          import os, sys
+          import pymongo
+          from pymongo.errors import ServerSelectionTimeoutError, ConfigurationError
+
+          uri = os.environ["MONGODB_URI"]
+          databases = {{ _databases_to_drop | to_json }}
+
+          if not databases:
+              print("No databases to drop.")
+              sys.exit(0)
+
+          # Short timeout so a network/IP-whitelist failure surfaces quickly.
+          client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=10000)
+
+          # Probe the connection before attempting any writes.
+          try:
+              client.admin.command("ping")
+          except ServerSelectionTimeoutError as exc:
+              print(
+                  "ERROR: Cannot reach the Atlas cluster.\n"
+                  "Most likely cause: this machine's IP is not in the Atlas Network Access list.\n"
+                  "Fix: Atlas → Security → Network Access → Add IP Address (or allow 0.0.0.0/0).\n"
+                  f"Detail: {exc}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          except ConfigurationError as exc:
+              print(f"ERROR: Bad connection URI — {exc}", file=sys.stderr)
+              sys.exit(1)
+
+          for db_name in databases:
+              client.drop_database(db_name)
+              print(f"Dropped: {db_name}")
+
+          print("Done.")
+
+    - name: Drop databases
+      ansible.builtin.command:
+        cmd: "{{ ansible_python_interpreter | default('python3') }} /tmp/leafy_bank_clear_databases.py"
+      environment:
+        MONGODB_URI: "{{ mongodb_uri }}"
+      register: _drop_result
+      changed_when: "'Dropped:' in _drop_result.stdout"
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ _drop_result.stdout_lines }}"
+
+    - name: Remove drop script
+      ansible.builtin.file:
+        path: /tmp/leafy_bank_clear_databases.py
+        state: absent
