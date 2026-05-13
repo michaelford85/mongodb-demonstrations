@@ -82,7 +82,8 @@ resource "aws_rds_cluster_instance" "this" {
 # otherwise try to connect as soon as the cluster endpoint exists, which is
 # before the writer instance is actually accepting connections.
 resource "postgresql_extension" "vector" {
-  name = "vector"
+  name         = "vector"
+  drop_cascade = true
 
   depends_on = [aws_rds_cluster_instance.this]
 }
