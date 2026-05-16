@@ -11,9 +11,9 @@ Each comparison demo is designed to surface a concrete operational difference be
 
 | Demo | Cosmos behaviour | Atlas behaviour | Operational outcome |
 |---|---|---|---|
-| `compare/connections` | RU ceiling hit; `throttled` count climbs above ~16 workers | Handles concurrent load without throttling | Higher query concurrency without scaling RUs |
+| `compare/connections` | RU ceiling enforced via gateway queueing — appears as p99 latency by default; `--surface-throttles` exposes the 429s the SDK was hiding | Handles concurrent load without throttling | Higher query concurrency without scaling RUs (or building bespoke retry logic to mask throttles) |
 | `compare/full_scan` | High RU cost per full-container scan | Low-latency indexed scan | Large catalogs searchable without partition exhaustion |
-| `compare/batch_throughput` | RU ceiling exhausted at larger row counts; retries compound latency | Bulk ops complete predictably at 10k–50k rows | Large batch files process end-to-end without rate limiting |
+| `compare/batch_throughput` | At `--rows 10000 --workers 8`: ~13% of writes and ~96% of queries are throttled with `--surface-throttles`; without it the throttling is hidden as 4-5× slower writes and a 90× drop in query throughput | Bulk ops complete predictably at 10k–50k rows | Large batch files process end-to-end without rate limiting or hidden retry tax |
 | `compare/index_limits` | Rejects >1 vector path per container | Accepts multiple vector indexes on one collection | Multiple embedding fields (e.g. description + attributes) can coexist |
 | `compare/product_match` | Cross-partition fan-out adds latency; result varies with partition pressure | Consistent low-latency ranked results | Similarity search is predictable under load |
 | `retrieve.py` | N/A | Atlas as metadata directory; PDF stays in Blob | Unstructured documents retrievable without copying into the DB |
@@ -170,9 +170,20 @@ pipeline above to have run, so both stores hold the same chunks and the
 Atlas Vector Search index is queryable.
 
 ```bash
-# Concurrent vector-search load. Watch the 'throttled' column climb on
-# Cosmos as workers go above what the autoscale RU/s ceiling supports.
+# Concurrent vector-search load. At the defaults (--workers 16 --top-k 5)
+# a small corpus stays under the 1000 RU/s autoscale floor and no
+# throttling appears -- the interesting datapoint is the throughput and
+# latency gap between the two backends at the same concurrency.
 python -m compare.connections --workers 16 --duration 30
+
+# --ru-stress preset (--workers 64 --top-k 50) combines higher concurrency
+# with a more expensive scan per query so per-query RU x rps comfortably
+# exceeds the Cosmos ceiling. By default the azure-cosmos SDK auto-retries
+# 429s for up to 30s, so saturation shows up as inflated p99 latency
+# rather than throttled requests. Add --surface-throttles to disable the
+# SDK auto-retry and let 429s land in the 'throttled' column directly.
+python -m compare.connections --ru-stress --duration 30
+python -m compare.connections --ru-stress --surface-throttles --duration 30
 
 # Vector-paths-per-container cap. Tries Cosmos with 11 vector paths
 # (rejected), then creates 11 vectorSearch indexes on a temporary Atlas
@@ -185,8 +196,11 @@ python -m compare.full_scan
 
 # Batch write + query throughput. Submits --rows synthetic documents in bulk,
 # then hammers both backends with concurrent vector searches for --duration
-# seconds. Watch throttled/retry counts climb on Cosmos as --rows increases.
+# seconds. As with `connections`, the azure-cosmos SDK auto-retries 429s by
+# default so throttling shows up as inflated p99/op-rate rather than in the
+# throttled column; add --surface-throttles to disable the SDK auto-retry.
 python -m compare.batch_throughput --rows 10000 --workers 8 --duration 30
+python -m compare.batch_throughput --rows 10000 --surface-throttles
 python -m compare.batch_throughput --rows 50000 --only atlas
 
 # Side-by-side product description match. Embeds the query with Voyage AI and
