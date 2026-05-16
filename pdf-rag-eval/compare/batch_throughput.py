@@ -12,9 +12,17 @@ random embeddings against the same index/container. Watch throttled and
 retry counts climb on Cosmos as --rows grows past what the autoscale
 RU/s ceiling can absorb.
 
+By default the azure-cosmos SDK auto-retries 429s up to 9 times with 30s
+of total backoff, so a saturated container shows up as inflated latency
+and the 'throttled' / 'retries' columns stay near zero. --surface-throttles
+disables that SDK-side auto-retry so 429s reach the application loop and
+land in the 'throttled' column (the in-script bounded retry on writes
+still applies, so 'retries' also populates honestly).
+
 Usage:
     python -m compare.batch_throughput --rows 10000 --workers 8 --duration 30
     python -m compare.batch_throughput --rows 50000 --only atlas
+    python -m compare.batch_throughput --rows 10000 --surface-throttles
 """
 from __future__ import annotations
 
@@ -27,6 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from azure.cosmos import CosmosClient
+from azure.cosmos import documents as cosmos_documents
 from azure.cosmos.exceptions import CosmosHttpResponseError
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, PyMongoError
@@ -230,6 +239,12 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--duration", type=int, default=30)
     parser.add_argument("--only", choices=("cosmos", "atlas", "both"), default="both")
+    parser.add_argument("--surface-throttles", action="store_true",
+                        help="Disable the azure-cosmos SDK's automatic 429 retry "
+                             "(default: 9 attempts, 30s total backoff) so throttled "
+                             "requests surface to the application loop and land in "
+                             "the 'throttled' column rather than being absorbed as "
+                             "silent latency.")
     args = parser.parse_args()
     settings: Settings = load_settings()
 
@@ -239,7 +254,22 @@ def main() -> None:
     rows: list[tuple[str, ...]] = []
 
     if args.only in ("cosmos", "both"):
-        cosmos = CosmosClient(settings.cosmos_endpoint, credential=settings.cosmos_key)
+        policy = None
+        if args.surface_throttles:
+            policy = cosmos_documents.ConnectionPolicy()
+            policy.RetryOptions = cosmos_documents.RetryOptions(
+                max_retry_attempt_count=0,
+                fixed_retry_interval_in_milliseconds=0,
+                max_wait_time_in_seconds=0,
+            )
+            print("[surface-throttles] Cosmos SDK auto-retry disabled; "
+                  "429s will appear in the 'throttled' column.")
+        cosmos = CosmosClient(
+            settings.cosmos_endpoint, credential=settings.cosmos_key,
+            connection_policy=policy,
+        ) if policy else CosmosClient(
+            settings.cosmos_endpoint, credential=settings.cosmos_key,
+        )
         container = (cosmos.get_database_client(settings.cosmos_database)
                      .get_container_client(settings.cosmos_container))
         print(f"[cosmos] write phase: {args.rows} rows / {args.workers} workers...")
