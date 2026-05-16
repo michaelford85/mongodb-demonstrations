@@ -15,7 +15,15 @@
       },
       {
         "type": "filter",
-        "path": "department"
+        "path": "category"
+      },
+      {
+        "type": "filter",
+        "path": "item_id"
+      },
+      {
+        "type": "filter",
+        "path": "vendor"
       },
       {
         "type": "filter",

@@ -69,7 +69,7 @@ def main() -> None:
                 f"Manifest references {local} but the file is missing. "
                 "Re-run generate_pdfs.py."
             )
-        blob_path = f"{rec['department']}/{rec['filename']}"
+        blob_path = f"catalog/{rec['filename']}"
         blob = container.get_blob_client(blob_path)
         with local.open("rb") as fh:
             blob.upload_blob(
@@ -78,7 +78,9 @@ def main() -> None:
                 content_settings=pdf_ct,
                 metadata={
                     "document_id": rec["document_id"],
-                    "department": rec["department"],
+                    "category": rec["category"],
+                    "item_id": rec["item_id"],
+                    "vendor": rec["vendor"],
                     "revision": rec["revision"],
                 },
             )
