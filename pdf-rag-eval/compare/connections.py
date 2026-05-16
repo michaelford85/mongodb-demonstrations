@@ -8,8 +8,23 @@ concurrency exceeds what the configured autoscale RU/s ceiling can
 serve; Atlas tier connection headroom is much higher, so successes
 typically dominate at the same concurrency.
 
+On a small corpus at default --workers 16 / --top-k 5, the per-query RU
+cost stays well under the 1000 RU/s autoscale floor and no throttling
+appears. --ru-stress raises the defaults to --workers 64 --top-k 50,
+which combines higher concurrency with a more expensive scan per query
+and is the quickest way to force 429s on Cosmos for a demo.
+
+By default the Cosmos SDK auto-retries 429s up to 9 times with 30s of
+total backoff, so a saturated container shows up as inflated latency
+rather than throttled requests. --surface-throttles disables that auto-
+retry so 429s land in the 'throttled' column instead of being absorbed
+as silent p99 inflation. Pair it with --ru-stress for the full demo.
+
 Usage:
     python -m compare.connections --workers 16 --duration 30
+    python -m compare.connections --ru-stress                       # workers=64, top_k=50
+    python -m compare.connections --ru-stress --surface-throttles   # full throttle demo
+    python -m compare.connections --ru-stress --workers 128         # override one knob
 """
 from __future__ import annotations
 
@@ -22,6 +37,7 @@ from pathlib import Path
 from typing import Callable
 
 from azure.cosmos import CosmosClient
+from azure.cosmos import documents as cosmos_documents
 from pymongo import MongoClient
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -105,13 +121,32 @@ def _run_load(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workers", type=int, default=16)
+    parser.add_argument("--workers", type=int, default=None,
+                        help="Worker threads (default: 16, or 64 with --ru-stress).")
     parser.add_argument("--duration", type=float, default=30.0)
-    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--top-k", type=int, default=None,
+                        help="Top-k per query (default: 5, or 50 with --ru-stress).")
+    parser.add_argument("--ru-stress", action="store_true",
+                        help="Preset that bumps --workers to 64 and --top-k to 50 "
+                             "so per-query RU cost x concurrency comfortably exceeds "
+                             "the Cosmos autoscale ceiling. Explicit --workers / "
+                             "--top-k still win.")
+    parser.add_argument("--surface-throttles", action="store_true",
+                        help="Disable the azure-cosmos SDK's automatic 429 retry "
+                             "(default: 9 attempts, 30s total backoff) so throttled "
+                             "requests surface as errors and land in the 'throttled' "
+                             "column rather than being absorbed as silent latency. "
+                             "Recommended with --ru-stress.")
     parser.add_argument(
         "--only", choices=("cosmos", "atlas", "both"), default="both"
     )
     args = parser.parse_args()
+
+    base_workers, base_top_k = (64, 50) if args.ru_stress else (16, 5)
+    workers = args.workers if args.workers is not None else base_workers
+    top_k = args.top_k if args.top_k is not None else base_top_k
+    if args.ru_stress:
+        print(f"[ru-stress] workers={workers} top_k={top_k}")
 
     settings: Settings = load_settings()
     print(
@@ -123,28 +158,43 @@ def main() -> None:
     rows = []
 
     if args.only in ("cosmos", "both"):
-        cosmos = CosmosClient(settings.cosmos_endpoint, credential=settings.cosmos_key)
+        policy = None
+        if args.surface_throttles:
+            policy = cosmos_documents.ConnectionPolicy()
+            policy.RetryOptions = cosmos_documents.RetryOptions(
+                max_retry_attempt_count=0,
+                fixed_retry_interval_in_milliseconds=0,
+                max_wait_time_in_seconds=0,
+            )
+            print("[surface-throttles] Cosmos SDK auto-retry disabled; "
+                  "429s will appear in the 'throttled' column.")
+        cosmos = CosmosClient(
+            settings.cosmos_endpoint, credential=settings.cosmos_key,
+            connection_policy=policy,
+        ) if policy else CosmosClient(
+            settings.cosmos_endpoint, credential=settings.cosmos_key,
+        )
         container = (
             cosmos.get_database_client(settings.cosmos_database)
             .get_container_client(settings.cosmos_container)
         )
         timings, elapsed = _run_load(
             "cosmos",
-            args.workers,
+            workers,
             args.duration,
-            lambda v: _cosmos_search(container, v, args.top_k),
+            lambda v: _cosmos_search(container, v, top_k),
             vectors,
         )
         rows.append(summarise("cosmos", timings, elapsed))
 
     if args.only in ("atlas", "both"):
-        client = MongoClient(settings.mongo_uri, maxPoolSize=max(args.workers * 2, 32))
+        client = MongoClient(settings.mongo_uri, maxPoolSize=max(workers * 2, 32))
         coll = client[settings.mongo_db][settings.mongo_collection]
         timings, elapsed = _run_load(
             "atlas",
-            args.workers,
+            workers,
             args.duration,
-            lambda v: _atlas_search(coll, settings.atlas_vector_index, v, args.top_k),
+            lambda v: _atlas_search(coll, settings.atlas_vector_index, v, top_k),
             vectors,
         )
         rows.append(summarise("atlas", timings, elapsed))

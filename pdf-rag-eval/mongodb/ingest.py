@@ -36,8 +36,9 @@ def _to_mongo_document(chunk: dict) -> dict:
         "blob_url": chunk["blob_url"],
         "filename": chunk["filename"],
         "title": chunk["title"],
-        "author": chunk["author"],
-        "department": chunk["department"],
+        "vendor": chunk["vendor"],
+        "category": chunk["category"],
+        "item_id": chunk["item_id"],
         "revision": chunk["revision"],
         "page_number": chunk["page_number"],
         "chunk_index": chunk["chunk_index"],
@@ -83,7 +84,8 @@ def main() -> None:
 
     # Btree indexes for the filter fields used in the comparison demos.
     coll.create_index("document_id")
-    coll.create_index("department")
+    coll.create_index("category")
+    coll.create_index("item_id")
 
     print(
         f"Inserted {total} chunks into "
