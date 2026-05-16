@@ -15,7 +15,7 @@ URL rather than being duplicated into the database.
 
 Usage:
     python retrieve.py "what are the safety procedures" --k 5
-    python retrieve.py "expense policy" --department compliance --save-pages out/
+    python retrieve.py "flammable solvent handling" --category compliance --save-pages out/
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def _parse_account_key(connection_string: str) -> str:
 
 
 def _vector_search(
-    coll, index_name: str, vector: list[float], k: int, department: str | None
+    coll, index_name: str, vector: list[float], k: int, category: str | None
 ) -> list[dict]:
     stage: dict = {
         "$vectorSearch": {
@@ -60,8 +60,8 @@ def _vector_search(
             "limit": k,
         }
     }
-    if department:
-        stage["$vectorSearch"]["filter"] = {"department": {"$eq": department}}
+    if category:
+        stage["$vectorSearch"]["filter"] = {"category": {"$eq": category}}
 
     pipeline = [
         stage,
@@ -72,7 +72,9 @@ def _vector_search(
                 "blob_path": 1,
                 "filename": 1,
                 "title": 1,
-                "department": 1,
+                "vendor": 1,
+                "category": 1,
+                "item_id": 1,
                 "page_number": 1,
                 "chunk_index": 1,
                 "text": 1,
@@ -136,7 +138,7 @@ def _run(settings: Settings, args: argparse.Namespace) -> None:
     client = MongoClient(settings.mongo_uri)
     coll = client[settings.mongo_db][settings.mongo_collection]
     hits = _vector_search(
-        coll, settings.atlas_vector_index, qvec, args.k, args.department
+        coll, settings.atlas_vector_index, qvec, args.k, args.category
     )
     if not hits:
         print("No vector-search hits. Is the Atlas index queryable yet?")
@@ -156,7 +158,8 @@ def _run(settings: Settings, args: argparse.Namespace) -> None:
         print(
             f"#{rank}  score={hit['score']:.4f}  "
             f"{hit['title']} (p.{hit['page_number']}, "
-            f"dept={hit['department']})"
+            f"cat={hit['category']}, item={hit['item_id']}, "
+            f"vendor={hit['vendor']})"
         )
         print(f"      chunk_id: {hit['_id']}")
         print(f"      snippet : {_snippet(hit['text'])}")
@@ -180,9 +183,10 @@ def main() -> None:
     parser.add_argument("query", help="Natural-language query to embed and search.")
     parser.add_argument("--k", type=int, default=5, help="Top-K to return.")
     parser.add_argument(
-        "--department",
-        choices=("engineering", "compliance", "support", "product"),
-        help="Optional filter pushed into the $vectorSearch stage.",
+        "--category",
+        help="Optional category filter pushed into the $vectorSearch stage "
+        "(e.g. 'storage-hardware', 'industrial-supplies', 'compliance', "
+        "'electronics-components'). Applied as a pre-filter, not a post-filter.",
     )
     parser.add_argument(
         "--expiry",

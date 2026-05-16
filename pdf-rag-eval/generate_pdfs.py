@@ -1,9 +1,10 @@
-"""Synthesize a small corpus of PDFs for the RAG demo.
+"""Synthesize a small corpus of product specification PDFs for the RAG demo.
 
 Produces N multi-page PDFs in data/source_pdfs/ from a tiny themed
-fixture corpus (fake product manuals across a few departments). Each PDF
-carries its own title, author, department, and revision date so the
-metadata-driven retrieval demo (2d) has something concrete to filter on.
+fixture corpus (synthetic product spec sheets across a few catalog
+categories). Each PDF carries its own title, vendor, category, item_id
+and revision date so the metadata-driven retrieval demo has something
+concrete to filter on.
 
 No third-party copyrighted material is used; all body text is generated
 programmatically.
@@ -31,38 +32,56 @@ from reportlab.platypus import (
 from config import SOURCE_PDF_DIR, DATA_DIR, load_settings  # noqa: F401
 
 # Themed sections so the chunked text doesn't look like uniform Lorem
-# Ipsum. Each PDF picks one department; sections drive section headings
+# Ipsum. Each PDF picks one category; sections drive section headings
 # and the per-section body text the Faker fills in.
-DEPARTMENTS = {
-    "engineering": [
-        "Architecture Overview",
-        "Failure Modes",
-        "Operational Runbook",
-        "Performance Tuning",
-        "Upgrade Procedure",
+CATEGORIES = {
+    "storage-hardware": [
+        "Product Overview",
+        "Capacity and Performance",
+        "Installation Procedure",
+        "Operating Environment",
+        "Warranty and Support",
+    ],
+    "industrial-supplies": [
+        "Product Overview",
+        "Material Composition",
+        "Handling and Storage",
+        "Safety Considerations",
+        "Ordering Information",
     ],
     "compliance": [
-        "Scope and Definitions",
-        "Audit Schedule",
-        "Data Retention Policy",
-        "Breach Response",
-        "Exceptions Process",
+        "Product Overview",
+        "Regulatory Scope",
+        "Test Procedures",
+        "Recordkeeping Requirements",
+        "Disposal and Recall",
     ],
-    "support": [
-        "Common Issues",
-        "Triage Workflow",
-        "Escalation Matrix",
-        "Customer Communications",
-        "Postmortem Template",
-    ],
-    "product": [
-        "Release Highlights",
-        "Known Limitations",
-        "Roadmap",
-        "Pricing Tiers",
-        "Migration Guide",
+    "electronics-components": [
+        "Product Overview",
+        "Electrical Characteristics",
+        "Mechanical Dimensions",
+        "Environmental Ratings",
+        "Reference Designs",
     ],
 }
+
+# Small vendor pool with deterministic SKU prefixes so item_id values
+# look like real B2B part numbers (e.g. "ACM-19284-M").
+VENDORS: tuple[tuple[str, str], ...] = (
+    ("Acme Industries", "ACM"),
+    ("Northwind Technical", "NWT"),
+    ("Globex Supply Co.", "GLX"),
+    ("Initech Components", "INT"),
+    ("Stark Logistics", "STK"),
+    ("Umbrella Hardware", "UMB"),
+)
+
+
+def _item_id(vendor_abbrev: str, doc_id: str) -> str:
+    """Deterministic SKU-style identifier derived from the document_id."""
+    number = int(doc_id[:5], 16) % 100000
+    letter = chr(ord("A") + int(doc_id[-1], 16) % 26)
+    return f"{vendor_abbrev}-{number:05d}-{letter}"
 
 
 def _styles() -> dict:
@@ -87,7 +106,8 @@ def _paragraph_text(fake: Faker, sentences: int) -> str:
 
 
 def _build_pdf(path: Path, fake: Faker, doc_id: str, title: str,
-               author: str, department: str, revision: date) -> dict:
+               vendor: str, category: str, item_id: str,
+               revision: date) -> dict:
     styles = _styles()
     doc = SimpleDocTemplate(
         str(path),
@@ -97,20 +117,21 @@ def _build_pdf(path: Path, fake: Faker, doc_id: str, title: str,
         topMargin=0.9 * inch,
         bottomMargin=0.9 * inch,
         title=title,
-        author=author,
-        subject=f"{department.title()} reference document",
-        keywords=f"demo,{department},rag,pdf",
+        author=vendor,
+        subject=f"Product specification sheet ({category})",
+        keywords=f"demo,{category},product,spec,pdf",
     )
     story: list = [
         Paragraph(title, styles["title"]),
         Paragraph(
-            f"Author: {author} &nbsp;&nbsp; Department: {department.title()} "
+            f"Vendor: {vendor} &nbsp;&nbsp; Category: {category} "
+            f"&nbsp;&nbsp; Item ID: {item_id} "
             f"&nbsp;&nbsp; Revision: {revision.isoformat()}",
             styles["body"],
         ),
         Spacer(1, 0.2 * inch),
     ]
-    for section in DEPARTMENTS[department]:
+    for section in CATEGORIES[category]:
         story.append(Paragraph(section, styles["h2"]))
         # 4-6 paragraphs per section, 5-8 sentences each, gives ~2 pages.
         for _ in range(random.randint(4, 6)):
@@ -124,8 +145,9 @@ def _build_pdf(path: Path, fake: Faker, doc_id: str, title: str,
         "document_id": doc_id,
         "filename": path.name,
         "title": title,
-        "author": author,
-        "department": department,
+        "vendor": vendor,
+        "category": category,
+        "item_id": item_id,
         "revision": revision.isoformat(),
     }
 
@@ -146,17 +168,19 @@ def main() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     manifest_path = DATA_DIR / "pdf_manifest.jsonl"
 
-    departments = list(DEPARTMENTS.keys())
+    categories = list(CATEGORIES.keys())
     records = []
     for i in range(args.count):
-        dept = departments[i % len(departments)]
+        category = categories[i % len(categories)]
+        vendor, abbrev = VENDORS[i % len(VENDORS)]
         doc_id = uuid.UUID(int=random.getrandbits(128)).hex[:12]
-        title = f"{dept.title()} Reference {i + 1:03d}: {fake.catch_phrase()}"
-        author = fake.name()
+        item_id = _item_id(abbrev, doc_id)
+        title = f"Product Specification Sheet: {fake.catch_phrase()}"
         revision = date.today() - timedelta(days=random.randint(0, 365))
-        filename = f"{dept}-{i + 1:03d}-{doc_id}.pdf"
+        filename = f"spec-{doc_id}.pdf"
         record = _build_pdf(
-            args.out_dir / filename, fake, doc_id, title, author, dept, revision
+            args.out_dir / filename, fake, doc_id, title,
+            vendor, category, item_id, revision,
         )
         records.append(record)
         print(f"  wrote {filename}")

@@ -5,6 +5,19 @@ for NoSQL** (DiskANN vector index) and **MongoDB Atlas Vector Search**,
 using a synthetic PDF corpus stored in Azure Blob Storage and Voyage AI
 embeddings (`voyage-4-large` at 1024 dims).
 
+## Why this matters
+
+Each comparison demo is designed to surface a concrete operational difference between the two backends. The table below maps demos to outcomes.
+
+| Demo | Cosmos behaviour | Atlas behaviour | Operational outcome |
+|---|---|---|---|
+| `compare/connections` | RU ceiling hit; `throttled` count climbs above ~16 workers | Handles concurrent load without throttling | Higher query concurrency without scaling RUs |
+| `compare/full_scan` | High RU cost per full-container scan | Low-latency indexed scan | Large catalogs searchable without partition exhaustion |
+| `compare/batch_throughput` | RU ceiling exhausted at larger row counts; retries compound latency | Bulk ops complete predictably at 10k–50k rows | Large batch files process end-to-end without rate limiting |
+| `compare/index_limits` | Rejects >1 vector path per container | Accepts multiple vector indexes on one collection | Multiple embedding fields (e.g. description + attributes) can coexist |
+| `compare/product_match` | Cross-partition fan-out adds latency; result varies with partition pressure | Consistent low-latency ranked results | Similarity search is predictable under load |
+| `retrieve.py` | N/A | Atlas as metadata directory; PDF stays in Blob | Unstructured documents retrievable without copying into the DB |
+
 ## Pipeline (current state)
 
 ```
@@ -60,14 +73,29 @@ Cosmos endpoint and key come from the sibling demo:
 
 ## Run the pipeline
 
+The fastest path is the bootstrap script, which runs every step below in
+order, validates `.env`, wipes stale data, and verifies that both
+backends hold the same chunk count and the Atlas index is queryable
+before exiting:
+
 ```bash
-python generate_pdfs.py            # ~20 PDFs in data/source_pdfs/
-python upload_blobs.py             # uploads to Azure Blob, updates manifest
-python embed_and_load.py           # extracts, chunks, embeds → data/chunks.jsonl
-python -m cosmos.ingest            # upserts into Cosmos
-python -m mongodb.ingest --drop    # inserts into Atlas
+./bootstrap.sh                  # full pipeline + verification
+./bootstrap.sh --with-smoke     # also run product_match + batch_throughput smoke tests
+./bootstrap.sh --skip-clean     # keep existing data/ artifacts
+```
+
+The manual sequence (what `bootstrap.sh` invokes) is:
+
+```bash
+python generate_pdfs.py             # ~20 PDFs in data/source_pdfs/
+python upload_blobs.py --overwrite  # uploads to Azure Blob, updates manifest
+python embed_and_load.py            # extracts, chunks, embeds → data/chunks.jsonl
+python -m cosmos.ingest             # upserts into Cosmos
+python -m mongodb.ingest --drop     # inserts into Atlas
 python -m mongodb.create_index --wait
 ```
+
+> **Atlas Auto Embeddings (optional):** If source documents change frequently, consider enabling [Atlas Auto Embeddings](https://www.mongodb.com/docs/atlas/atlas-vector-search/auto-embeddings/) on the collection instead of re-running `embed_and_load.py` manually. When a watched field changes, Atlas automatically recomputes the embedding and updates the vector index. This demo uses manual embedding for portability and to keep both backends on identical vectors; Auto Embeddings is the recommended path for high-churn production catalogs.
 
 `data/chunks.jsonl` is the single source of truth that both backends
 ingest from — guaranteeing they hold byte-identical chunk text and
@@ -78,19 +106,20 @@ each side.
 
 ```json
 {
-  "chunk_id": "8b4f..._p007_c003",
+  "chunk_id":    "8b4f..._p007_c003",
   "document_id": "8b4f1c2a9e10",
-  "blob_path": "engineering/engineering-007-8b4f1c2a9e10.pdf",
-  "blob_url":  "https://<account>.blob.core.windows.net/pdfs/...",
-  "filename":  "engineering-007-8b4f1c2a9e10.pdf",
-  "title":     "Engineering Reference 007: ...",
-  "author":    "Jane Doe",
-  "department":"engineering",
-  "revision":  "2025-11-04",
+  "blob_path":   "catalog/spec-8b4f1c2a9e10.pdf",
+  "blob_url":    "https://<account>.blob.core.windows.net/pdfs/...",
+  "filename":    "spec-8b4f1c2a9e10.pdf",
+  "title":       "Product Specification Sheet: ...",
+  "vendor":      "Acme Industries",
+  "category":    "storage-hardware",
+  "item_id":     "ACM-19284-M",
+  "revision":    "2025-11-04",
   "page_number": 7,
   "chunk_index": 3,
-  "text":      "...",
-  "embedding": [0.012, ...]   // 1024 floats from voyage-4-large
+  "text":        "...",
+  "embedding":   [0.012, ...]   // 1024 floats from voyage-4-large
 }
 ```
 
@@ -153,9 +182,20 @@ python -m compare.index_limits
 # Cost of scan-style operations. Cosmos RU per page vs Atlas latency
 # for total count and full _id projection across the chunk set.
 python -m compare.full_scan
+
+# Batch write + query throughput. Submits --rows synthetic documents in bulk,
+# then hammers both backends with concurrent vector searches for --duration
+# seconds. Watch throttled/retry counts climb on Cosmos as --rows increases.
+python -m compare.batch_throughput --rows 10000 --workers 8 --duration 30
+python -m compare.batch_throughput --rows 50000 --only atlas
+
+# Side-by-side product description match. Embeds the query with Voyage AI and
+# returns ranked results from both backends with similarity scores and latency.
+python -m compare.product_match "portable power supply 12V industrial grade"
+python -m compare.product_match "safety data sheet flammable solvent" --category compliance --k 3
 ```
 
-All three accept `--only cosmos` or `--only atlas` if you want to drive
+All accept `--only cosmos` or `--only atlas` if you want to drive
 one side at a time.
 
 ## Metadata-driven retrieval (`retrieve.py`)
@@ -169,17 +209,17 @@ the PDF into the database — it mints a short-lived SAS URL on demand.
 # Top-5 hits, with SAS URLs valid for 15 minutes.
 python retrieve.py "what are the safety procedures"
 
-# Push the department filter into the $vectorSearch stage (pre-filter,
+# Push the category filter into the $vectorSearch stage (pre-filter,
 # not post-filter) and save just the matching page of each hit locally.
-python retrieve.py "expense policy" --department compliance --save-pages out/
+python retrieve.py "flammable solvent handling" --category compliance --save-pages out/
 
 # Shorter-lived URLs for a live demo.
-python retrieve.py "rollout checklist" --k 3 --expiry 5
+python retrieve.py "rack installation checklist" --k 3 --expiry 5
 ```
 
 Each result prints the rank, similarity score, title, page number,
-department, the chunk_id, a one-line text snippet, and a signed URL.
-With `--save-pages DIR`, the script downloads each hit's PDF from
-Blob, slices out the specific page via `pypdf`, and writes it as
-`NN-<filename-stem>-pPPP.pdf` so you can hand a reviewer the exact
+category, item_id, vendor, the chunk_id, a one-line text snippet, and
+a signed URL. With `--save-pages DIR`, the script downloads each hit's
+PDF from Blob, slices out the specific page via `pypdf`, and writes it
+as `NN-<filename-stem>-pPPP.pdf` so you can hand a reviewer the exact
 page that was retrieved rather than the whole document.
