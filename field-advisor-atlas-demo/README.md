@@ -132,6 +132,18 @@ streamlit run app.py --server.port ${STREAMLIT_SERVER_PORT:-8501}
 > No seed data? The sidebar has a **🌱 Seed demo data** button (seed-if-empty).
 > After using it, run `scripts/create_indexes.py` once so vector search works.
 
+## Tear down
+
+Drops the demo's search indexes, drops the demo database (all collections),
+and frees the Streamlit port. Only touches this demo's database.
+
+```bash
+python3 teardown.py                  # prompts, then tears everything down
+python3 teardown.py --yes            # no prompt
+python3 teardown.py --keep-db        # only drop indexes + free the port
+python3 teardown.py --port 8502      # override the Streamlit port to free
+```
+
 ---
 
 ## Swapping the embedding provider
@@ -182,6 +194,7 @@ Context, save an interaction, then refresh `support_cases` and
 | `app.py` | Streamlit GUI: advisory search, operational context (+ write-back), Why Atlas. |
 | `seed_data.py` | Idempotent seed: all collections + knowledge-base embeddings. |
 | `scripts/create_indexes.py` | Creates the Atlas Vector Search + optional Atlas Search indexes. |
+| `teardown.py` | Drops the search indexes + demo database and frees the Streamlit port. |
 | `lib/atlas_client.py` | Cached Atlas client, collection names, filter vocabularies. |
 | `lib/embeddings.py` | Pluggable embedder (local default, Voyage optional). |
 | `lib/sample_data.py` | Synthetic growers, fields, products, cases, interactions. |
