@@ -8,10 +8,12 @@ function backfills seed history and drives the live simulator.
 """
 
 import random
+import time
 import uuid
 from datetime import datetime, timezone
 
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 
 from lib.atlas_client import REGIONS
 from lib.sample_data import CURRENCIES, RISK_FLAGS
@@ -19,10 +21,8 @@ from lib.sample_data import CURRENCIES, RISK_FLAGS
 # Regions that "route away" to a partner region during impairment storytelling.
 FAILOVER_MAP = {
     "us-east": "us-west",
-    "eu-west": "us-east",
-    "ap-southeast": "us-west",
-    "sa-east": "us-east",
     "us-west": "us-east",
+    "eu": "us-east",
 }
 
 
@@ -67,46 +67,99 @@ def _decide(amount: float, risk_flags: list[str], available: float) -> tuple[str
     return "approved", None
 
 
-def generate_event(db: Database, *, region: str | None = None,
-                   impaired_region: str | None = None,
-                   at: datetime | None = None) -> dict:
-    """Create one full authorization and persist it. Returns the decision doc."""
-    account = _random_account(db)
-    instrument = _random_instrument(db, account["account_id"])
-    merchant = _random_merchant(db)
+def authorize(db: Database, *, account: dict, instrument: dict, merchant: dict,
+              region: str, amount: float, idempotency_key: str | None = None,
+              routing_region: str | None = None,
+              failover_reason: str | None = None,
+              risk_flags: list[str] | None = None,
+              at: datetime | None = None) -> dict:
+    """Persist one authorization and move money on the OWNER shard.
 
-    region = region or account["region"]
+    ``region`` is the PROCESSING region (where the auth is handled — the journal
+    shard-key prefix). The account's own region is the OWNER region: the balance
+    document lives on that shard's single primary, so concurrent same-card
+    writes from any region are serialized there. A guarded ``$inc`` makes the
+    settlement / hold safe under that concurrency — the first writer wins the
+    funds and any other sees ``matched_count == 0`` and is declined.
+    """
+    owner_region = account["region"]
     currency = CURRENCIES.get(region, "USD")
     payment_type = instrument["payment_type"]
-    amount = round(random.uniform(4.0, min(account["available_balance"] + 50, 900)), 2)
+    routing_region = routing_region or region
     ts = at or _now()
+    idem = idempotency_key or ("idem_" + uuid.uuid4().hex[:20])
 
-    # Region impairment storytelling: route away and annotate the reason.
-    routing_region, failover_reason = region, None
-    if impaired_region and region == impaired_region:
-        routing_region = FAILOVER_MAP.get(region, "us-west")
-        failover_reason = f"{region}_impaired_rerouted_to_{routing_region}"
+    # Idempotent replay: a retried request (same processing region + key)
+    # returns the original decision instead of charging the card twice.
+    prior_req = db.auth_requests.find_one({"region": region, "idempotency_key": idem})
+    if prior_req:
+        prior = db.auth_decisions.find_one(
+            {"region": region, "request_id": prior_req["request_id"]})
+        if prior:
+            return prior
 
-    risk_flags = random.sample(RISK_FLAGS, k=random.choices([0, 1, 2, 3],
-                               weights=[62, 24, 10, 4])[0])
-    status, reason = _decide(amount, risk_flags, account["available_balance"])
-    latency_ms = random.randint(18, 70) + (random.randint(40, 160)
-                                           if failover_reason else 0)
+    if risk_flags is None:
+        risk_flags = random.sample(RISK_FLAGS, k=random.choices([0, 1, 2, 3],
+                                   weights=[62, 24, 10, 4])[0])
+    # Tentative decision from a read of the (possibly stale) live balance.
+    live = db.accounts.find_one(
+        {"account_id": account["account_id"], "region": owner_region}) or account
+    status, reason = _decide(amount, risk_flags, live.get("available_balance", 0.0))
 
     request_id = "req_" + uuid.uuid4().hex[:18]
-    auth_request = {
-        "request_id": request_id,
-        "account_id": account["account_id"],
-        "instrument_token": instrument["instrument_token"],
-        "merchant_id": merchant["merchant_id"],
-        "region": region,
-        "routing_region": routing_region,
-        "payment_type": payment_type,
-        "amount": amount,
-        "currency": currency,
-        "payload": _build_payload(payment_type, amount, currency),
-        "created_at": ts,
-    }
+    try:
+        db.auth_requests.insert_one({
+            "request_id": request_id,
+            "idempotency_key": idem,
+            "account_id": account["account_id"],
+            "instrument_token": instrument["instrument_token"],
+            "merchant_id": merchant["merchant_id"],
+            "region": region,
+            "owner_region": owner_region,
+            "routing_region": routing_region,
+            "payment_type": payment_type,
+            "amount": amount,
+            "currency": currency,
+            "payload": _build_payload(payment_type, amount, currency),
+            "created_at": ts,
+        })
+    except DuplicateKeyError:
+        prior_req = db.auth_requests.find_one(
+            {"region": region, "idempotency_key": idem})
+        prior = prior_req and db.auth_decisions.find_one(
+            {"region": region, "request_id": prior_req["request_id"]})
+        if prior:
+            return prior
+        status, reason = "declined", "duplicate_request"
+
+    # Authoritative money movement on the owner shard's single primary.
+    cross_region = region != owner_region
+    write_ms = None
+    if status in ("approved", "pending"):
+        inc = ({"available_balance": -amount} if status == "approved"
+               else {"hold_amount": amount, "available_balance": -amount})
+        t0 = time.perf_counter()
+        res = db.accounts.update_one(
+            {"account_id": account["account_id"], "region": owner_region,
+             "available_balance": {"$gte": amount}},
+            {"$inc": inc, "$set": {"updated_at": ts}})
+        write_ms = round((time.perf_counter() - t0) * 1000, 1)
+        if res.matched_count == 0:
+            # A concurrent write on the same card took the funds first.
+            status, reason = "declined", "insufficient_funds"
+        else:
+            db.ledger_events.insert_one({
+                "event_id": "led_" + uuid.uuid4().hex[:18],
+                "account_id": account["account_id"], "request_id": request_id,
+                "region": region, "owner_region": owner_region,
+                "type": "settlement" if status == "approved" else "hold",
+                "amount": amount, "currency": currency, "created_at": ts,
+            })
+    # Declined authorizations move no money.
+
+    latency_ms = (random.randint(18, 70)
+                  + (random.randint(40, 160) if failover_reason else 0)
+                  + (random.randint(30, 120) if cross_region else 0))
 
     decision = {
         "decision_id": "dec_" + uuid.uuid4().hex[:18],
@@ -118,8 +171,11 @@ def generate_event(db: Database, *, region: str | None = None,
         "instrument_token": instrument["instrument_token"],
         "masked_number": instrument.get("masked_number"),
         "region": region,
+        "owner_region": owner_region,
         "routing_region": routing_region,
         "failover_reason": failover_reason,
+        "cross_region_owner_write": cross_region,
+        "owner_write_ms": write_ms,
         "payment_type": payment_type,
         "amount": amount,
         "currency": currency,
@@ -131,44 +187,33 @@ def generate_event(db: Database, *, region: str | None = None,
         "created_at": ts,
         "updated_at": ts,
     }
-
-    db.auth_requests.insert_one(dict(auth_request))
     db.auth_decisions.insert_one(dict(decision))
-    _apply_ledger(db, account, request_id, amount, currency, status, ts)
     return decision
 
 
-def _apply_ledger(db: Database, account: dict, request_id: str, amount: float,
-                  currency: str, status: str, ts: datetime) -> None:
-    """Record ledger movement and update the account's balance / hold state."""
-    account_id = account["account_id"]
-    if status == "approved":
-        # Approved settles immediately in this simplified model.
-        db.ledger_events.insert_one({
-            "event_id": "led_" + uuid.uuid4().hex[:18],
-            "account_id": account_id, "request_id": request_id,
-            "type": "settlement", "amount": amount, "currency": currency,
-            "created_at": ts,
-        })
-        db.accounts.update_one(
-            {"account_id": account_id},
-            {"$inc": {"available_balance": -amount},
-             "$set": {"updated_at": ts}},
-        )
-    elif status == "pending":
-        # Pending places a hold that reserves funds without settling.
-        db.ledger_events.insert_one({
-            "event_id": "led_" + uuid.uuid4().hex[:18],
-            "account_id": account_id, "request_id": request_id,
-            "type": "hold", "amount": amount, "currency": currency,
-            "created_at": ts,
-        })
-        db.accounts.update_one(
-            {"account_id": account_id},
-            {"$inc": {"hold_amount": amount, "available_balance": -amount},
-             "$set": {"updated_at": ts}},
-        )
-    # Declined authorizations move no money.
+def generate_event(db: Database, *, region: str | None = None,
+                   impaired_region: str | None = None,
+                   at: datetime | None = None) -> dict:
+    """Select random entities and authorize one payment. Returns the decision.
+
+    Normal traffic is processed in the account's own region (co-located, fast).
+    The impairment story reroutes a region's traffic to a partner for display.
+    """
+    account = _random_account(db)
+    instrument = _random_instrument(db, account["account_id"])
+    merchant = _random_merchant(db)
+
+    region = region or account["region"]
+    amount = round(random.uniform(4.0, min(account["available_balance"] + 50, 900)), 2)
+
+    routing_region, failover_reason = region, None
+    if impaired_region and region == impaired_region:
+        routing_region = FAILOVER_MAP.get(region, REGIONS[0])
+        failover_reason = f"{region}_impaired_rerouted_to_{routing_region}"
+
+    return authorize(db, account=account, instrument=instrument, merchant=merchant,
+                     region=region, amount=amount, at=at,
+                     routing_region=routing_region, failover_reason=failover_reason)
 
 
 def _random_account(db: Database) -> dict:
@@ -192,12 +237,15 @@ def take_snapshot(db: Database) -> int:
     ts = _now()
     snaps = [{
         "account_id": a["account_id"],
+        # Shard-key prefix: snapshots are co-located with their owning account.
+        "region": a.get("region"),
         "available_balance": a.get("available_balance", 0.0),
         "hold_amount": a.get("hold_amount", 0.0),
         "currency": a.get("currency", "USD"),
         "snapshot_at": ts,
-    } for a in db.accounts.find({}, {"account_id": 1, "available_balance": 1,
-                                     "hold_amount": 1, "currency": 1})]
+    } for a in db.accounts.find({}, {"account_id": 1, "region": 1,
+                                     "available_balance": 1, "hold_amount": 1,
+                                     "currency": 1})]
     if snaps:
         db.balance_snapshots.insert_many(snaps)
     return len(snaps)

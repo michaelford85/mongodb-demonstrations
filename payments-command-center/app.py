@@ -13,11 +13,15 @@ import time
 import pandas as pd
 import streamlit as st
 
-from lib.atlas_client import (REGIONS, db_name, get_db, is_empty,
+from lib.atlas_client import (REGION_ZONES, REGIONS, SHARD_KEYS, db_name,
+                              get_db, is_collection_sharded, is_empty,
+                              is_mongos, shard_distribution,
                               supports_change_streams)
 from lib.sample_data import build_accounts, build_instruments, build_merchants
 from lib.simulator import generate_event, take_snapshot
 from lib import queries
+from scripts.conflict_scenario import run_conflict, run_idempotency
+from scripts.shard_collections import shard_all
 
 st.set_page_config(page_title="Northstar Payments — Command Center",
                    page_icon="💳", layout="wide")
@@ -54,6 +58,8 @@ def _db():
 def quick_seed() -> None:
     """One-click 'seed if empty' — a light seed straight from the UI."""
     db = _db()
+    # Shard the empty collections first so inserts route to their home zones.
+    shard_all(verbose=False)
     accts = build_accounts(30)
     db.accounts.insert_many(accts)
     db.payment_instruments.insert_many(build_instruments(accts))
@@ -74,6 +80,10 @@ def render_sidebar() -> dict:
         db.command("ping")
         cs = supports_change_streams()
         st.sidebar.success(f"Atlas connected · `{db_name()}`")
+        topology = ("🧩 GEOSHARDED (mongos router)" if is_mongos()
+                    else "🧱 Replica set (not sharded)")
+        st.sidebar.caption(
+            f"{topology} · writes `w:majority`, `retryWrites`")
         st.sidebar.caption(
             ("🔄 Change streams available — live feed uses rerun-safe polling."
              if cs else "🔁 Polling mode (standalone server — no change streams).")
@@ -108,7 +118,8 @@ def render_sidebar() -> dict:
     interval = st.sidebar.slider("Refresh seconds", 1, 10, 2)
     st.sidebar.markdown("---")
     page = st.sidebar.radio("View", ["📊 Dashboard", "🔎 Transaction Explorer",
-                                     "🏦 Accounts", "🧬 Payment Types & Schema"])
+                                     "🏦 Accounts", "🧬 Payment Types & Schema",
+                                     "🌍 Multi-Region & Sharding"])
     return {"mode": mode, "impair": None if impair == "None" else impair,
             "auto": auto, "interval": interval, "page": page}
 
@@ -324,6 +335,92 @@ def render_schema() -> None:
             "database migration — the same collection absorbs the new shape.")
 
 
+# ── Page: Multi-Region & Sharding ──────────────────────────────────────────
+
+def render_multiregion() -> None:
+    db = _db()
+    st.markdown("## 🌍 Multi-Region & Sharding")
+    if not is_mongos():
+        st.warning("Not connected through a mongos router. This page tells its "
+                   "full story on the GEOSHARDED cluster described in "
+                   "`.env.example`; the topology map below still applies.")
+
+    st.markdown("#### Zone → region → shard topology")
+    st.caption("Each real region owns one shard, pinned to its own Atlas zone. "
+               "A card's balance lives on its owner region's shard primary — the "
+               "anchor that serializes same-card writes from anywhere.")
+    st.dataframe(pd.DataFrame(REGION_ZONES).rename(columns={
+        "region": "region", "atlas_region": "atlas region", "zone": "zone"}),
+        use_container_width=True, hide_index=True)
+
+    st.markdown("#### Per-shard document distribution ($collStats)")
+    dist_rows = []
+    for coll in SHARD_KEYS:
+        d = shard_distribution(coll)
+        dist_rows.append({"collection": coll,
+                          "sharded": is_collection_sharded(coll),
+                          **{k: v for k, v in d.items()}})
+    st.dataframe(pd.DataFrame(dist_rows).fillna(0), use_container_width=True,
+                 hide_index=True)
+
+    st.markdown("#### One logical journal, visible across every region")
+    st.caption("A single scatter-gather query over the sharded `auth_decisions` "
+               "collection — processing region vs. owning region.")
+    gj = queries.global_journal(db, window_minutes=120)
+    if gj:
+        st.dataframe(pd.DataFrame(gj), use_container_width=True, hide_index=True)
+    else:
+        st.caption("No recent decisions — generate some traffic first.")
+
+    xr = queries.cross_region_writes(db, window_minutes=120, limit=20)
+    st.markdown(f"#### Cross-region owner writes ({len(xr)} in last 120 min)")
+    st.caption("Processed in one region, settled on another region's owner "
+               "shard — still serialized on that single primary.")
+    if xr:
+        st.dataframe(pd.DataFrame([{
+            "when": d["decided_at"].strftime("%H:%M:%S"),
+            "processing": d.get("region"),
+            "owner": d.get("owner_region"),
+            "status": d["auth_status"],
+            "owner_write_ms": d.get("owner_write_ms"),
+            "amount": d["amount"],
+        } for d in xr]), use_container_width=True, hide_index=True)
+
+    _render_conflict_runner()
+
+
+def _render_conflict_runner() -> None:
+    st.markdown("---")
+    st.markdown("#### ⚔️ Same-card, multi-region conflict")
+    st.caption("Fire one authorization per region against ONE card, each for the "
+               "full balance. The owner shard's primary serializes them: exactly "
+               "one wins, the rest are declined `insufficient_funds` — no lock, "
+               "no double-spend. Then replay one request to prove idempotency.")
+    amount = st.number_input("Contested amount", min_value=10.0, value=100.0,
+                             step=10.0)
+    if st.button("⚔️ Run conflict scenario", use_container_width=True):
+        db = _db()
+        res = run_conflict(db, amount=amount)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Approved", res["approved"])
+        c2.metric("Declined", res["declined"])
+        c3.metric("Final balance", money(res["final_balance"]))
+        st.dataframe(pd.DataFrame([{
+            "region": r["region"],
+            "write": "cross-region" if r["cross_region"] else "owner",
+            "status": r["status"],
+            "reason": r["reason"],
+            "owner_write_ms": r["owner_write_ms"],
+        } for r in res["results"]]), use_container_width=True, hide_index=True)
+        if res["approved"] == 1 and res["final_balance"] >= 0:
+            st.success("✅ Serialized on the owner shard: exactly one approved, "
+                       "balance never went negative.")
+        idem = run_idempotency(db, amount=amount)
+        st.info(f"Idempotent replay → same decision: {idem['same_decision']} · "
+                f"charged once: {idem['charged_once']} · "
+                f"final balance {money(idem['final_balance'])}")
+
+
 # ── Main router ────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -339,8 +436,10 @@ def main() -> None:
         render_explorer()
     elif page.startswith("🏦"):
         render_accounts()
-    else:
+    elif page.startswith("🧬"):
         render_schema()
+    else:
+        render_multiregion()
 
     st.markdown("---")
     st.caption("Illustrative demo — MongoDB Atlas is the system of record. "

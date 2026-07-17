@@ -125,6 +125,39 @@ def transaction_detail(db: Database, request_id: str) -> dict:
     return {"decision": decision, "request": request, "ledger": ledger}
 
 
+def cross_region_writes(db: Database, window_minutes: int = 60,
+                        limit: int = 25) -> list[dict]:
+    """Recent authorizations whose owner-shard write crossed regions.
+
+    These are the decisions where the processing region differed from the card's
+    owner region — the write was routed to the owning shard's primary and still
+    serialized there. Powers the conflict/serialization narrative.
+    """
+    since = _cutoff(window_minutes)
+    return list(db.auth_decisions.find(
+        {"decided_at": {"$gte": since}, "cross_region_owner_write": True})
+        .sort("decided_at", -1).limit(limit))
+
+
+def global_journal(db: Database, window_minutes: int = 60) -> list[dict]:
+    """One logical, cross-region view of the journal: counts per processing
+    region alongside how many of those were owned by each region. A single
+    scatter-gather query over the sharded ``auth_decisions`` collection."""
+    since = _cutoff(window_minutes)
+    pipeline = [
+        {"$match": {"decided_at": {"$gte": since}}},
+        {"$group": {
+            "_id": {"processing": "$region", "owner": "$owner_region"},
+            "count": {"$sum": 1},
+        }},
+        {"$sort": {"count": -1}},
+    ]
+    return [{"processing_region": r["_id"].get("processing"),
+             "owner_region": r["_id"].get("owner"),
+             "count": r["count"]}
+            for r in db.auth_decisions.aggregate(pipeline)]
+
+
 def list_accounts(db: Database, limit: int = 200) -> list[dict]:
     return list(db.accounts.find().sort("account_id", 1).limit(limit))
 

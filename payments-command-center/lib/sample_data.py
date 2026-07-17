@@ -15,8 +15,8 @@ random.seed(42)
 
 CARD_NETWORKS = ["Visa", "Mastercard", "Amex", "Discover"]
 WALLET_PROVIDERS = ["NorthPay Wallet", "Meridian Pay", "OrbitPay"]
-CURRENCIES = {"us-east": "USD", "us-west": "USD", "eu-west": "EUR",
-              "ap-southeast": "SGD", "sa-east": "BRL"}
+# Currency per real demo region (us-east / us-west / eu).
+CURRENCIES = {"us-east": "USD", "us-west": "USD", "eu": "EUR"}
 
 MERCHANT_CATALOG = [
     ("Aurora Coffee Roasters", "food_and_beverage"),
@@ -85,6 +85,8 @@ def build_instruments(accounts: list[dict]) -> list[dict]:
             base = {
                 "instrument_token": new_token(),
                 "account_id": acct["account_id"],
+                # Co-located with the owning account for zone sharding.
+                "region": acct["region"],
                 "payment_type": ptype,
                 "masked_number": masked_card(),
                 "created_at": _now() - timedelta(days=random.randint(1, 400)),
