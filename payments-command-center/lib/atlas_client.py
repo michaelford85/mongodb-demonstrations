@@ -143,16 +143,16 @@ def zone_for_region(region: str) -> str | None:
 
 
 def is_collection_sharded(coll_name: str) -> bool:
-    """True when the given collection has a shard key configured."""
+    """True when the given collection is sharded across the cluster.
+
+    Uses collStats, which through mongos reports a top-level ``sharded`` flag
+    (and a per-shard ``shards`` breakdown) for sharded collections.
+    """
     try:
-        info = next(iter(get_db().list_collections(filter={"name": coll_name})), None)
-        return bool(info and "shardKey" in (info.get("options") or {}))
+        stats = get_db().command("collStats", coll_name)
     except Exception:
-        # Older servers report shard status via collStats instead.
-        try:
-            return "shards" in get_db().command("collStats", coll_name)
-        except Exception:
-            return False
+        return False
+    return bool(stats.get("sharded")) or bool(stats.get("shards"))
 
 
 def shard_distribution(coll_name: str) -> dict[str, int]:
