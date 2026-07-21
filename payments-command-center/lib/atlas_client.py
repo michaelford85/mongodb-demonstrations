@@ -167,3 +167,18 @@ def shard_distribution(coll_name: str) -> dict[str, int]:
     if not shards:
         return {"(unsharded)": stats.get("count", 0)}
     return {name: s.get("count", 0) for name, s in shards.items()}
+
+
+def region_distribution(coll_name: str) -> dict[str, int]:
+    """Routed document counts per demo region for a collection.
+
+    Counts are targeted on the ``region`` shard-key prefix, so they reflect the
+    logical home zone of every document — the authoritative, stable view of
+    locality. Unlike raw $collStats per-shard counts, these are unaffected by
+    Atlas Global Writes managing physical chunk placement (which can leave data
+    on the primary shard) or by orphaned docs from in-flight migrations."""
+    db = get_db()
+    try:
+        return {r: db[coll_name].count_documents({"region": r}) for r in REGIONS}
+    except Exception:
+        return {}
