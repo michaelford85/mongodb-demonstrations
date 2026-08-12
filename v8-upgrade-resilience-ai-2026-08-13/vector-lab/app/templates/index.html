@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DocsCo knowledge base search — vector lab</title>
+<style>
+  :root { --bg:#f7f8f9; --card:#fff; --line:#dfe3e6; --ink:#1c2b33;
+          --muted:#5c6c75; --accent:#00684a; --warn:#8a5a00; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px; background:var(--bg); color:var(--ink);
+         font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  form { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  input[type=text] { flex:1 1 420px; padding:9px 12px; border:1px solid var(--line);
+                     border-radius:6px; font-size:14px; }
+  select, button { padding:9px 14px; border:1px solid var(--line);
+                   border-radius:6px; background:var(--card); font-size:14px; }
+  button { background:var(--accent); color:#fff; border-color:var(--accent);
+           cursor:pointer; }
+  .examples { margin:0 0 20px; color:var(--muted); }
+  .examples a { color:var(--accent); margin-right:14px; white-space:nowrap; }
+  .grid { display:grid; gap:16px;
+          grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); }
+  .panel { background:var(--card); border:1px solid var(--line);
+           border-radius:8px; padding:14px; }
+  .panel h2 { font-size:14px; margin:0 0 4px; }
+  .why { color:var(--muted); font-size:12.5px; margin:0 0 8px; }
+  .timing { color:var(--muted); font-size:12px;
+            border-bottom:1px solid var(--line); padding-bottom:8px;
+            margin-bottom:8px; }
+  ol { margin:0; padding-left:22px; }
+  li { margin-bottom:10px; }
+  .title { font-weight:600; }
+  .meta { color:var(--muted); font-size:12px; }
+  .snippet { font-size:13px; margin-top:2px; }
+  .tag { display:inline-block; padding:0 5px; border-radius:3px;
+         font-size:11px; border:1px solid var(--line); margin-left:4px; }
+  .tag.showcase { border-color:var(--accent); color:var(--accent); }
+  .tag.decoy { border-color:var(--warn); color:var(--warn); }
+  .moved { color:var(--accent); font-size:11.5px; }
+  .empty { color:var(--muted); font-style:italic; }
+  .err { background:#fdf3f3; border:1px solid #e6c9c9; border-radius:8px;
+         padding:12px; margin-bottom:16px; }
+  details { margin-top:10px; }
+  summary { cursor:pointer; color:var(--muted); font-size:12px; }
+  pre { background:#f2f4f5; border:1px solid var(--line); border-radius:6px;
+        padding:10px; overflow-x:auto; font-size:11.5px; margin:8px 0 0; }
+  .footer { color:var(--muted); font-size:12px; margin-top:22px; }
+</style>
+</head>
+<body>
+
+<h1>DocsCo knowledge base search</h1>
+<p class="sub">
+  One query, three strategies. All content is synthetic.
+  <span class="meta">
+    {{ lab.namespace }} · embeddings: {{ lab.embedding_provider }}
+    ({{ lab.embedding_model }}, {{ lab.embedding_dim }}d) ·
+    rerank: {{ lab.rerank_backend }}
+  </span>
+</p>
+
+<form method="get" action="/">
+  <input type="text" name="q" value="{{ query }}"
+         placeholder="Ask the way a customer would, e.g. why is my bill higher than last month"
+         autofocus>
+  <select name="mode">
+    <option value="all" {% if mode == 'all' %}selected{% endif %}>All three</option>
+    {% for m in modes %}
+    <option value="{{ m }}" {% if mode == m %}selected{% endif %}>{{ m }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Search</button>
+</form>
+
+<p class="examples">
+  Try:
+  {% for ex in examples %}<a href="/?q={{ ex | urlencode }}&mode={{ mode }}">{{ ex }}</a>{% endfor %}
+</p>
+
+{% for e in errors %}
+<div class="err"><strong>{{ e.mode }}</strong> failed — {{ e.error }}: {{ e.detail }}</div>
+{% endfor %}
+
+{% if query and panels %}
+<div class="grid">
+  {% for p in panels %}
+  <section class="panel">
+    <h2>{{ p.label }}</h2>
+    <p class="why">{{ p.explanation }}</p>
+    <p class="timing">
+      query {{ p.elapsed_ms }} ms
+      {%- if p.embed_ms is defined %} · embed {{ p.embed_ms }} ms{% endif %}
+      {%- if p.rerank_ms is defined %} · rerank {{ p.rerank_ms }} ms
+        over {{ p.candidates }} candidates{% endif %}
+    </p>
+    {% if p.results %}
+    <ol>
+      {% for r in p.results %}
+      <li>
+        <span class="title">{{ r.title }}</span>
+        {% if r.kind == 'showcase' %}<span class="tag showcase">answers it</span>
+        {% elif r.kind == 'decoy' %}<span class="tag decoy">lexical decoy</span>{% endif %}
+        <div class="meta">
+          {{ r.doc_id }} · {{ r.product }} / {{ r.category }} ·
+          {{ r.score_label }} {{ r.score }}
+          {% if r.moved_from and r.moved_from != r.rank %}
+          <span class="moved">vector #{{ r.moved_from }} → rerank #{{ r.rank }}</span>
+          {% endif %}
+        </div>
+        <div class="snippet">{{ r.snippet }}</div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="empty">No matches.</p>
+    {% endif %}
+    {% if show_pipeline %}
+    <details>
+      <summary>pipeline</summary>
+      <pre>{{ p.pipeline | tojson_pretty }}</pre>
+    </details>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% elif not query %}
+<p class="empty">Enter a query, or pick one of the examples above.</p>
+{% endif %}
+
+<p class="footer">
+  Indexes: {{ lab.text_index }} (BM25) · {{ lab.vector_index }} (vectorSearch,
+  cosine). Rerank reads the top {{ lab.rerank_candidates }} vector candidates and
+  returns {{ lab.result_limit }}.
+</p>
+
+</body>
+</html>

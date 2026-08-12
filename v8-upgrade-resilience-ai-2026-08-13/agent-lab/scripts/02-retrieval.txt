@@ -1,0 +1,15 @@
+# Script 2 — retrieval. Topical search, then a named ticket.
+#
+#   python app/main.py --script scripts/02-retrieval.txt
+#
+# Teaching points:
+#   1. a topic with no structural cue routes to search_tickets
+#   2. the same question run with USE_VECTOR_SEARCH=true changes the results
+#      but not the agent — the tool boundary absorbs it
+#   3. an explicit ticket id always wins over search
+
+Anything going on with the billing-api service?
+
+Are customers having trouble signing in?
+
+Show me TCK-1020

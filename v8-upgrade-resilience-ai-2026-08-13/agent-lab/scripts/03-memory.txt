@@ -1,0 +1,20 @@
+# Script 3 — memory and its limits.
+#
+#   python app/main.py --script scripts/03-memory.txt
+#
+# Teaching points:
+#   1. recency question, then two follow-ups that name nothing at all
+#   2. /reset drops the context — the same follow-up now has nothing to
+#      resolve against, and the agent says so instead of guessing. That
+#      failure is the point: memory is state you own, not something the
+#      model supplies.
+
+What has come in over the last few hours?
+
+Tell me more about the first one
+
+/memory
+
+/reset
+
+Tell me more about the first one
