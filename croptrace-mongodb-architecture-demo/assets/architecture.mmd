@@ -1,0 +1,25 @@
+flowchart LR
+    APP["Streamlit GUI<br/>app.py + pages/1-7"] -->|"document-local read (find)"| ATLAS[("MongoDB Atlas<br/>croptrace_demo")]
+    APP -->|"aggregation + $lookup"| ATLAS
+    APP -->|"multi-document transaction"| ATLAS
+    APP -->|"semantic query ($vectorSearch)"| ATLAS
+    EMB["Embeddings<br/>local (default) | voyage"] --> APP
+    CLAUDE["Claude<br/>optional grounded answer"] --> APP
+    subgraph Operational["Operational collections"]
+      PLT["plots<br/>embedded treatments/weather/prediction"]
+      CPP["crop_protection_products<br/>authoritative master data"]
+      CRP["crops"]
+      TRT["treatment_events<br/>normalized for $lookup"]
+      PRD["residue_predictions<br/>normalized for $lookup"]
+      AUD["audit_events<br/>written by the transaction"]
+    end
+    subgraph Governance["Schema governance"]
+      VAL["$jsonSchema validators<br/>plots · products · treatment_events"]
+    end
+    subgraph Semantic["Vector search"]
+      KN["knowledge_notes<br/>documents + embeddings"]
+      VI["croptrace_knowledge_vector_index"]
+    end
+    ATLAS --- Operational
+    ATLAS --- Governance
+    ATLAS --- Semantic
