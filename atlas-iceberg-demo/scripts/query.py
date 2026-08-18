@@ -20,10 +20,18 @@ QUERIES_FILE = common.DEMO_DIR / "sql" / "queries.sql"
 
 def load_statements() -> list[str]:
     raw = QUERIES_FILE.read_text()
-    blocks = raw.split("-- @@")
+    blocks, current = [], []
+    for line in raw.splitlines():
+        if line.strip() == "-- @@":
+            blocks.append(current)
+            current = []
+        else:
+            current.append(line)
+    blocks.append(current)
+
     statements = []
     for block in blocks:
-        lines = [ln for ln in block.splitlines() if not ln.strip().startswith("--")]
+        lines = [ln for ln in block if not ln.strip().startswith("--")]
         stmt = "\n".join(lines).strip().rstrip(";").strip()
         if stmt:
             statements.append(stmt)
