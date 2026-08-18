@@ -1,0 +1,11 @@
+# Environment / secrets
+.env
+
+# Local runtime state: resume-token checkpoints, logs, pipeline PID
+state/
+
+# Python
+__pycache__/
+*.pyc
+.python-version
+.venv/
