@@ -1,0 +1,7 @@
+streamlit>=1.35.0
+pymongo>=4.7.0
+python-dotenv>=1.0.0
+pandas>=2.0.0
+pytest>=8.0.0
+voyageai>=0.3.0    # optional — only the voyage embedder / reranker uses this
+anthropic>=0.40.0  # optional — only the grounded shortlist summary uses this
