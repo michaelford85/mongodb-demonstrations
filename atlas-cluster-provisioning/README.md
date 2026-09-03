@@ -213,6 +213,9 @@ Atlas requires Cloud Backup on local NVMe clusters. `deploy.sh` now forces `CLUS
 **`HTTP 400 … INVALID_INSTANCE_SIZE` with an `_NVME` tier**
 The requested tier is not offered as NVMe in that region. NVMe starts at M40 on AWS and M60 on Azure, and not every region carries every NVMe tier — check the tier list in the Atlas UI for your region.
 
+**`HTTP 400 … NO_COMMON_INSTANCE_FAMILY`**
+"There is no common supported instance family in the selected regions." The tier itself is available in every region in `CLUSTER_REGIONS`, but the underlying host families differ, and Atlas needs one family that covers them all. This is easy to hit with `CLUSTER_STORAGE_CLASS=NVME` across regions, because each NVMe tier maps to a specific host family. Either drop to a single region, or try a different secondary region until the tier resolves to a shared family. `CLUSTER_STORAGE_CLASS=SSD` is not affected.
+
 **Cluster stuck provisioning**
 Atlas clusters can occasionally take longer than expected. Check the Atlas UI → Clusters page for status. Terraform will keep waiting.
 
