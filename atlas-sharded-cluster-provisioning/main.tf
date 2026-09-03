@@ -14,10 +14,33 @@ provider "mongodbatlas" {
 }
 
 locals {
+  # ── Storage class ────────────────────────────────────────────────────────────
+  # Atlas selects local NVMe storage through the instance-size suffix, e.g.
+  # M40_NVME. Local NVMe is picked either by setting cluster_storage_class to
+  # NVME or by naming an already-suffixed tier in cluster_instance_size.
+  storage_class = upper(var.cluster_storage_class)
+  use_nvme      = local.storage_class == "NVME" || endswith(upper(var.cluster_instance_size), "_NVME")
+  nvme_suffix   = local.use_nvme ? "_NVME" : ""
+
+  # Strip any suffix the operator typed, then re-apply it from the storage
+  # class so both inputs always agree on one tier name.
+  instance_size_base = replace(upper(var.cluster_instance_size), "_NVME", "")
+  compute_max_base   = var.cluster_compute_max_instance_size != "" ? replace(upper(var.cluster_compute_max_instance_size), "_NVME", "") : local.instance_size_base
+
+  effective_instance_size = "${local.instance_size_base}${local.nvme_suffix}"
+
   # Effective Compute Auto-Scale ceiling. Empty input pins max = current tier
   # so the feature is enabled without actually scaling — the configuration
   # Atlas Automated Embedding (autoEmbed) requires.
-  effective_compute_max = var.cluster_compute_max_instance_size != "" ? var.cluster_compute_max_instance_size : var.cluster_instance_size
+  effective_compute_max = "${local.compute_max_base}${local.nvme_suffix}"
+
+  # NVMe disk size is fixed by the tier and Atlas rejects an explicit value.
+  # 0 means "let Atlas apply the default for the tier".
+  effective_disk_size_gb = local.use_nvme || var.cluster_disk_size_gb == 0 ? null : var.cluster_disk_size_gb
+
+  # Cluster-tier and disk auto-scaling are unavailable on the Local NVMe SSD
+  # class, so the auto_scaling block is dropped entirely for NVMe clusters.
+  compute_autoscale_enabled = var.cluster_compute_autoscale_enabled && !local.use_nvme
 }
 
 # ── Sharded Cluster ────────────────────────────────────────────────────────────
@@ -55,26 +78,40 @@ resource "mongodbatlas_advanced_cluster" "demo" {
           priority      = region_configs.value.priority
 
           electable_specs {
-            instance_size = var.cluster_instance_size
+            instance_size = local.effective_instance_size
             node_count    = region_configs.value.electable_nodes
+            disk_size_gb  = local.effective_disk_size_gb
           }
 
           # Compute Auto-Scale is a prerequisite for Atlas Automated Embedding.
           # With min == max == current tier the feature is enabled without
           # actually scaling. Override cluster_compute_max_instance_size to
-          # raise the ceiling.
+          # raise the ceiling. Skipped entirely for local NVMe clusters, which
+          # Atlas does not auto-scale.
           dynamic "auto_scaling" {
-            for_each = var.cluster_compute_autoscale_enabled ? [1] : []
+            for_each = local.compute_autoscale_enabled ? [1] : []
             content {
               disk_gb_enabled            = true
               compute_enabled            = true
               compute_scale_down_enabled = false
-              compute_min_instance_size  = var.cluster_instance_size
+              compute_min_instance_size  = local.effective_instance_size
               compute_max_instance_size  = local.effective_compute_max
             }
           }
         }
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !local.use_nvme || contains(["AWS", "AZURE"], var.cluster_cloud_provider)
+      error_message = "Local NVMe storage is only offered on AWS and AZURE. Use cluster_storage_class = SSD, or change cluster_cloud_provider."
+    }
+
+    precondition {
+      condition     = !local.use_nvme || var.cluster_disk_size_gb == 0
+      error_message = "cluster_disk_size_gb must be 0 with local NVMe storage — Atlas fixes disk capacity per NVMe tier and rejects an explicit disk size."
     }
   }
 }

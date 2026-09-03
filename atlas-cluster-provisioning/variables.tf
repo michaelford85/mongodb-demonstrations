@@ -30,9 +30,33 @@ variable "cluster_cloud_provider" {
 }
 
 variable "cluster_instance_size" {
-  description = "Atlas cluster instance size (e.g. M10, M20, M30)"
+  description = "Atlas cluster instance size (e.g. M10, M30, M40). An explicit _NVME suffix (e.g. M40_NVME) selects local NVMe storage regardless of cluster_storage_class."
   type        = string
   default     = "M30"
+  validation {
+    condition     = can(regex("^M[0-9]+(_NVME)?$", upper(var.cluster_instance_size)))
+    error_message = "cluster_instance_size must look like M30 or M40_NVME."
+  }
+}
+
+variable "cluster_storage_class" {
+  description = "Storage class for the cluster: SSD (network-attached, the Atlas default) or NVME (local NVMe SSD). NVME applies the _NVME suffix to the instance size — available on AWS (M40+) and AZURE (M60+) only, and not on GCP."
+  type        = string
+  default     = "SSD"
+  validation {
+    condition     = contains(["SSD", "NVME"], upper(var.cluster_storage_class))
+    error_message = "cluster_storage_class must be SSD or NVME."
+  }
+}
+
+variable "cluster_disk_size_gb" {
+  description = "Root volume capacity in GB. 0 (default) lets Atlas apply the default size for the tier. Must be 0 for local NVMe clusters, where disk capacity is fixed by the tier."
+  type        = number
+  default     = 0
+  validation {
+    condition     = var.cluster_disk_size_gb == 0 || (var.cluster_disk_size_gb >= 10 && var.cluster_disk_size_gb <= 4096)
+    error_message = "cluster_disk_size_gb must be 0 (Atlas default) or between 10 and 4096."
+  }
 }
 
 variable "mongodb_version" {
