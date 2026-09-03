@@ -1,0 +1,16 @@
+%% Northstar Payments — Command Center architecture
+%% Render at https://mermaid.live or in the README on GitHub.
+flowchart LR
+    SIM["simulate_payments.py<br/>+ in-app simulator"] -->|insert auth events| ATLAS[("MongoDB Atlas<br/>northstar_payments")]
+    APP["Streamlit Command Center<br/>app.py"] -->|read feed / metrics| ATLAS
+    APP -->|generate batch on demand| ATLAS
+    subgraph Collections
+      ACC["accounts"]
+      PI["payment_instruments"]
+      MER["merchants"]
+      AR["auth_requests"]
+      AD["auth_decisions"]
+      LE["ledger_events"]
+      BS["balance_snapshots"]
+    end
+    ATLAS --- Collections

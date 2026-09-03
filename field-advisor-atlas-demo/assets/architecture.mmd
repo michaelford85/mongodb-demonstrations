@@ -1,0 +1,19 @@
+flowchart LR
+    APP["Streamlit GUI<br/>app.py"] -->|"structured filter (find)"| ATLAS[("MongoDB Atlas<br/>field_advisor")]
+    APP -->|"semantic query ($vectorSearch)"| ATLAS
+    APP -->|"write-back note / recommendation"| ATLAS
+    EMB["Embeddings<br/>local (default) | voyage"] --> APP
+    subgraph Operational["Operational collections"]
+      GRW["growers"]
+      FLD["fields"]
+      PRD["products"]
+      SC["support_cases"]
+      IH["interaction_history"]
+    end
+    subgraph Semantic["Vector + Search"]
+      KA["knowledge_articles<br/>documents + embeddings"]
+      VI["knowledge_vector_index"]
+      TI["knowledge_text_index (optional)"]
+    end
+    ATLAS --- Operational
+    ATLAS --- Semantic

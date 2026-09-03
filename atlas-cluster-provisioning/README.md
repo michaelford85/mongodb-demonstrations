@@ -9,7 +9,7 @@ This folder contains a **Terraform-based script** for spinning up and tearing do
 | Resource | Description |
 |---|---|
 | `mongodbatlas_advanced_cluster` | A dedicated replica set cluster (M10+) inside an existing Atlas project, with Compute Auto-Scale enabled by default |
-| `mongodbatlas_database_user` | An `atlasAdmin` user for connecting to the cluster |
+| `mongodbatlas_database_user` | Three users: an `atlasAdmin` admin user, a `readWriteAnyDatabase` application user, and a `clusterMonitor` monitoring user |
 | `mongodbatlas_search_deployment` | Dedicated Atlas Search nodes *(only when `CLUSTER_SEARCH_NODES > 0`)* |
 
 Compute Auto-Scale is enabled with `min == max == CLUSTER_INSTANCE_SIZE` by default — the feature is on (which Atlas Automated Embedding / `autoEmbed` vector search indexes require) but the cluster does not actually scale unless you raise `CLUSTER_COMPUTE_MAX_INSTANCE_SIZE`.
@@ -72,6 +72,12 @@ CLUSTER_COMPUTE_MAX_INSTANCE_SIZE=
 
 DB_ADMIN_USER=admin
 DB_ADMIN_PASSWORD=<strong-password>
+
+# Application user (readWriteAnyDatabase) and monitoring user (clusterMonitor)
+DB_APP_USER=app-user
+DB_APP_PASSWORD=<strong-password>
+DB_MONITOR_USER=monitor-user
+DB_MONITOR_PASSWORD=<strong-password>
 ```
 
 > **Atlas region name format:** Atlas uses uppercase with underscores, e.g. `US_EAST_1`,
@@ -106,7 +112,9 @@ connection_strings = {
 }
 ```
 
-Use `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` from your `.env` to authenticate.
+Use `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` from your `.env` to authenticate. `DB_APP_USER`
+(read/write on all databases) and `DB_MONITOR_USER` (diagnostics only) are also created for
+least-privilege access.
 
 ---
 
@@ -116,7 +124,7 @@ Use `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` from your `.env` to authenticate.
 ./teardown.sh
 ```
 
-You will be prompted to type the cluster name to confirm. All resources (cluster, project, database user) are destroyed.
+You will be prompted to type the cluster name to confirm. All resources (cluster, project, database users) are destroyed.
 
 ---
 
@@ -143,7 +151,7 @@ CLUSTER_REGIONS='[
 
 | File | Purpose |
 |---|---|
-| `main.tf` | Provider, project, cluster, search nodes, and admin user resources |
+| `main.tf` | Provider, project, cluster, search nodes, and database user resources |
 | `variables.tf` | All input variable declarations |
 | `outputs.tf` | Connection strings, cluster ID, and state emitted after apply |
 | `deploy.sh` | Validates `.env`, exports `TF_VAR_*`, runs `terraform apply` |

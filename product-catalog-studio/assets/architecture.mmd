@@ -1,0 +1,19 @@
+flowchart LR
+    APP["Streamlit GUI<br/>app.py + pages/1-5"] -->|"filtered find + sort + skip/limit"| ATLAS[("MongoDB Atlas<br/>product_catalog_studio")]
+    APP -->|"upsert + audit insert"| ATLAS
+    APP -->|"keyword ($search)"| ATLAS
+    APP -->|"semantic ($vectorSearch)"| ATLAS
+    APP -->|"hybrid ($rankFusion, RRF fallback)"| ATLAS
+    EMB["Embeddings<br/>local (default) | voyage"] --> APP
+    CLAUDE["Claude<br/>optional shortlist summary"] --> APP
+    subgraph Collections["Demo collections (pcs_ prefix)"]
+      PRD["pcs_products<br/>equipment · consumable · service_plan<br/>+ embedding on the same document"]
+      EVT["pcs_product_events<br/>audit trail of catalog writes"]
+    end
+    subgraph Indexes["Indexes"]
+      BT["btree<br/>product_id · sku · type+category+status<br/>price.amount · updated_at"]
+      TI["pcs_products_text_index<br/>Atlas Search (BM25 + token filters)"]
+      VI["pcs_products_vector_index<br/>Vector Search (cosine + filters)"]
+    end
+    ATLAS --- Collections
+    ATLAS --- Indexes

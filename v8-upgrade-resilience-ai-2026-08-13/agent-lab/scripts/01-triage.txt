@@ -1,0 +1,16 @@
+# Script 1 — triage. Aggregation, then a priority filter, then memory.
+#
+#   python app/main.py --script scripts/01-triage.txt
+#
+# Teaching points, in order:
+#   1. an open question becomes an aggregation, not a list
+#   2. an urgency question becomes a priority filter — a different tool
+#   3. "the second one" resolves from short-term memory, no ticket id spoken
+
+Give me a summary of what is going on right now
+
+What needs attention most urgently?
+
+Tell me more about the second one
+
+/memory

@@ -1,0 +1,7 @@
+# Pinned to the versions tested for this demo (see README "Versions tested").
+pymongo==4.10.1
+python-dotenv==1.0.1
+pyiceberg[pyarrow]==0.8.1
+trino==0.330.0
+boto3==1.35.76
+pytest==8.3.4

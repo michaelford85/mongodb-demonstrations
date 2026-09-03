@@ -1,0 +1,4 @@
+.env
+_s3_export/
+__pycache__/
+*.pyc

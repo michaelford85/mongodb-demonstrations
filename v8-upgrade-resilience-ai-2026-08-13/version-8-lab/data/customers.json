@@ -1,0 +1,10 @@
+[
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000001", "display_name": "Tenant Alpha", "plan": "free",       "region": "region-a", "signup_date": "2024-01-08T09:12:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000002", "display_name": "Tenant Bravo", "plan": "team",       "region": "region-a", "signup_date": "2024-02-14T11:30:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000003", "display_name": "Tenant Charlie", "plan": "team",     "region": "region-b", "signup_date": "2024-03-02T15:45:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000004", "display_name": "Tenant Delta", "plan": "business",   "region": "region-b", "signup_date": "2024-03-19T08:05:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000005", "display_name": "Tenant Echo", "plan": "business",    "region": "region-c", "signup_date": "2024-04-27T13:20:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000006", "display_name": "Tenant Foxtrot", "plan": "free",     "region": "region-c", "signup_date": "2024-05-11T10:00:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000007", "display_name": "Tenant Golf", "plan": "enterprise",  "region": "region-a", "signup_date": "2024-06-01T07:40:00Z"},
+  {"customer_id": "3f1c9a20-0000-4a1b-8c2d-000000000008", "display_name": "Tenant Hotel", "plan": "enterprise", "region": "region-b", "signup_date": "2024-07-23T16:55:00Z"}
+]

@@ -79,3 +79,27 @@ variable "db_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "db_app_user" {
+  description = "Username for the application database user (readWriteAnyDatabase)"
+  type        = string
+  default     = "app-user"
+}
+
+variable "db_app_password" {
+  description = "Password for the application database user"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_monitor_user" {
+  description = "Username for the monitoring database user (clusterMonitor)"
+  type        = string
+  default     = "monitor-user"
+}
+
+variable "db_monitor_password" {
+  description = "Password for the monitoring database user"
+  type        = string
+  sensitive   = true
+}

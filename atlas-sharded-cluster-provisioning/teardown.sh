@@ -56,6 +56,10 @@ export TF_VAR_cluster_compute_autoscale_enabled="${CLUSTER_COMPUTE_AUTOSCALE_ENA
 export TF_VAR_cluster_compute_max_instance_size="${CLUSTER_COMPUTE_MAX_INSTANCE_SIZE:-}"
 export TF_VAR_db_admin_user="$DB_ADMIN_USER"
 export TF_VAR_db_admin_password="$DB_ADMIN_PASSWORD"
+export TF_VAR_db_app_user="$DB_APP_USER"
+export TF_VAR_db_app_password="$DB_APP_PASSWORD"
+export TF_VAR_db_monitor_user="$DB_MONITOR_USER"
+export TF_VAR_db_monitor_password="$DB_MONITOR_PASSWORD"
 
 # ── Destroy ────────────────────────────────────────────────────────────────────
 

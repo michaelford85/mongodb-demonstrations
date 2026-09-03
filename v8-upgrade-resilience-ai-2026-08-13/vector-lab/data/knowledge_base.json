@@ -1,0 +1,2702 @@
+[
+  {
+    "doc_id": "KB-0001",
+    "kind": "showcase",
+    "title": "Understanding proration on mid-cycle plan changes",
+    "body": "When a workspace changes plan part-way through a cycle, DocsCo splits the period in two and charges each half at its own rate. The resulting line items rarely match the flat figure quoted on the pricing page, and the difference persists for exactly one cycle before settling. Seat additions behave the same way: each new seat is charged from the day it was assigned, not from the start of the period.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0002",
+    "kind": "showcase",
+    "title": "What happens when a teammate leaves the workspace",
+    "body": "Removing somebody from a workspace releases their seat immediately, but the credit appears on the following statement rather than the current one. Their documents stay where they are and ownership transfers to the workspace owner. Anything they had shared by link keeps working until the link is revoked.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0003",
+    "kind": "showcase",
+    "title": "Requests are accepted but nothing appears downstream",
+    "body": "A 202 response means DocsCo has taken custody of the payload, not that the receiving system has processed it. If the destination endpoint returns a non-2xx status, Dispatch holds the message and tries again with widening gaps for up to six hours before parking it in the dead letter queue, where it can be replayed by hand.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0004",
+    "kind": "showcase",
+    "title": "Signing in stopped working after the company switched providers",
+    "body": "When an organisation moves to a new identity provider, existing sessions survive until they expire, so the problem often shows up hours later and only for some people. The fix is to re-issue the metadata document and ask affected users to start a fresh session in a private window. Local passwords are not consulted once federated access is enforced.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0005",
+    "kind": "showcase",
+    "title": "Numbers in the dashboard disagree with the exported file",
+    "body": "The dashboard reads from a rolling summary refreshed every fifteen minutes, while an export is assembled from the raw event stream at the moment you request it. Late-arriving events are therefore visible in one and not yet the other. Comparing the two is only meaningful once the summary window has closed.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0006",
+    "kind": "showcase",
+    "title": "Large workspaces feel sluggish in the afternoon",
+    "body": "Scheduled digests are generated on the hour, and a workspace with many saved views can queue enough of them to delay interactive requests. Spreading digest schedules across the hour, or trimming views nobody opens, restores responsiveness without changing plan.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0007",
+    "kind": "decoy",
+    "title": "Where to find a bill and how the bill list is sorted",
+    "body": "The bill list shows one row per month, with the newest month first. You can re-sort the list so an older month sits higher, pin a month you refer to often, or hide any month with no activity. None of this alters a bill in any way \u2014 it only changes which month you see and where in the list it appears.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0008",
+    "kind": "decoy",
+    "title": "Glossary: request, accepted, and system",
+    "body": "Definitions only. A request is a single call. A request is accepted once the system has taken custody of it. The other system is whichever party receives the request. This page never describes what the system does with a request \u2014 it only defines the words that other articles use.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0009",
+    "kind": "decoy",
+    "title": "Password rules for people who log in with a password",
+    "body": "Local policy for people who log in with a password: minimum length, character classes, how often the password must be changed, and how many past passwords are remembered. People who log in this way are covered here; nothing in this article changes for anybody else.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0010",
+    "kind": "filler",
+    "title": "Dispatch access controls for analysts",
+    "body": "Access controls available to analysts in Dispatch, including role assignment, session length, and audit visibility. Changes take effect on the next request; no restart is needed.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0011",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership",
+    "body": "Workspace and membership administration in Vault as it affects developers, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0012",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership",
+    "body": "Workspace and membership administration in Vault as it affects support agents, from invitation through to removal. The setting is per workspace, not per user.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0013",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour",
+    "body": "Diagnostic steps for analysts when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0014",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour",
+    "body": "Diagnostic steps for developers when Ledger behaves unexpectedly, starting with the activity log and working outwards. An entry is added to the audit trail either way.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0015",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour",
+    "body": "Diagnostic steps for support agents when Dispatch behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0016",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal",
+    "body": "Building and sharing views in Signal for developers, including scheduling and export formats. Limits are advisory and can be raised on request.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0017",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale",
+    "body": "What governs responsiveness in Ledger for support agents, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0018",
+    "kind": "filler",
+    "title": "How Dispatch usage is counted for support agents",
+    "body": "This article explains how Dispatch usage is measured for support agents and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0019",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour",
+    "body": "Diagnostic steps for analysts when Dispatch behaves unexpectedly, starting with the activity log and working outwards. Only workspace owners can complete the final step.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0020",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership",
+    "body": "Workspace and membership administration in Ledger as it affects support agents, from invitation through to removal. The setting is per workspace, not per user.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0021",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale",
+    "body": "What governs responsiveness in Atlas Reports for analysts, and which settings are worth changing before contacting support. Historical records are never rewritten by this change.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0022",
+    "kind": "filler",
+    "title": "Getting support agents started with Vault",
+    "body": "A first-week checklist for support agents setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0023",
+    "kind": "filler",
+    "title": "Signal access controls for administrators",
+    "body": "Access controls available to administrators in Signal, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0024",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal",
+    "body": "Building and sharing views in Signal for support agents, including scheduling and export formats. Limits are advisory and can be raised on request.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0025",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Vault",
+    "body": "Building and sharing views in Vault for support agents, including scheduling and export formats. The same procedure applies in every region.",
+    "category": "reporting",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0026",
+    "kind": "filler",
+    "title": "How Signal usage is counted for analysts",
+    "body": "This article explains how Signal usage is measured for analysts and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0027",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour",
+    "body": "Diagnostic steps for support agents when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. Only workspace owners can complete the final step.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0028",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch",
+    "body": "Building and sharing views in Dispatch for developers, including scheduling and export formats. The setting is per workspace, not per user.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0029",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour",
+    "body": "Diagnostic steps for administrators when Signal behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0030",
+    "kind": "filler",
+    "title": "Getting analysts started with Ledger",
+    "body": "A first-week checklist for analysts setting up Ledger: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0031",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems",
+    "body": "How Ledger exchanges data with other systems, and what administrators should check when a connection is first established. The default is deliberately conservative and suits most teams.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0032",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership",
+    "body": "Workspace and membership administration in Vault as it affects administrators, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0033",
+    "kind": "filler",
+    "title": "Ledger access controls for developers",
+    "body": "Access controls available to developers in Ledger, including role assignment, session length, and audit visibility. The same procedure applies in every region.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0034",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale",
+    "body": "What governs responsiveness in Atlas Reports for support agents, and which settings are worth changing before contacting support. Changes take effect on the next request; no restart is needed.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0035",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale",
+    "body": "What governs responsiveness in Ledger for analysts, and which settings are worth changing before contacting support. Only workspace owners can complete the final step.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0036",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for analysts",
+    "body": "This article explains how Ledger usage is measured for analysts and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0037",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale",
+    "body": "What governs responsiveness in Vault for analysts, and which settings are worth changing before contacting support. Historical records are never rewritten by this change.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0038",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems",
+    "body": "How Signal exchanges data with other systems, and what developers should check when a connection is first established. An entry is added to the audit trail either way.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0039",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale",
+    "body": "What governs responsiveness in Signal for support agents, and which settings are worth changing before contacting support. The default is deliberately conservative and suits most teams.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0040",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Ledger",
+    "body": "Building and sharing views in Ledger for developers, including scheduling and export formats. Limits are advisory and can be raised on request.",
+    "category": "reporting",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0041",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale",
+    "body": "What governs responsiveness in Vault for administrators, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0042",
+    "kind": "filler",
+    "title": "Getting developers started with Signal",
+    "body": "A first-week checklist for developers setting up Signal: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0043",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership",
+    "body": "Workspace and membership administration in Signal as it affects administrators, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0044",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems",
+    "body": "How Signal exchanges data with other systems, and what administrators should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0045",
+    "kind": "filler",
+    "title": "Signal access controls for analysts",
+    "body": "Access controls available to analysts in Signal, including role assignment, session length, and audit visibility. Historical records are never rewritten by this change.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0046",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch",
+    "body": "Building and sharing views in Dispatch for analysts, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0047",
+    "kind": "filler",
+    "title": "How Signal usage is counted for support agents",
+    "body": "This article explains how Signal usage is measured for support agents and where the totals appear in the statement. The default is deliberately conservative and suits most teams.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0048",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems",
+    "body": "How Ledger exchanges data with other systems, and what developers should check when a connection is first established. Limits are advisory and can be raised on request.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0049",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems",
+    "body": "How Signal exchanges data with other systems, and what analysts should check when a connection is first established. The same procedure applies in every region.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0050",
+    "kind": "filler",
+    "title": "Dispatch access controls for support agents",
+    "body": "Access controls available to support agents in Dispatch, including role assignment, session length, and audit visibility. Changes take effect on the next request; no restart is needed.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0051",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership",
+    "body": "Workspace and membership administration in Signal as it affects developers, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0052",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale",
+    "body": "What governs responsiveness in Vault for developers, and which settings are worth changing before contacting support. The setting is per workspace, not per user.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0053",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for administrators",
+    "body": "This article explains how Ledger usage is measured for administrators and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0054",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for analysts",
+    "body": "Access controls available to analysts in Atlas Reports, including role assignment, session length, and audit visibility. An entry is added to the audit trail either way.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0055",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership",
+    "body": "Workspace and membership administration in Ledger as it affects analysts, from invitation through to removal. The default is deliberately conservative and suits most teams.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0056",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for support agents",
+    "body": "Access controls available to support agents in Atlas Reports, including role assignment, session length, and audit visibility. Limits are advisory and can be raised on request.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0057",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership",
+    "body": "Workspace and membership administration in Dispatch as it affects support agents, from invitation through to removal. The same procedure applies in every region.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0058",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports",
+    "body": "Building and sharing views in Atlas Reports for support agents, including scheduling and export formats. Changes take effect on the next request; no restart is needed.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0059",
+    "kind": "filler",
+    "title": "Vault access controls for developers",
+    "body": "Access controls available to developers in Vault, including role assignment, session length, and audit visibility. Only workspace owners can complete the final step.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0060",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for support agents",
+    "body": "This article explains how Atlas Reports usage is measured for support agents and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0061",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale",
+    "body": "What governs responsiveness in Ledger for administrators, and which settings are worth changing before contacting support. Historical records are never rewritten by this change.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0062",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour",
+    "body": "Diagnostic steps for administrators when Ledger behaves unexpectedly, starting with the activity log and working outwards. An entry is added to the audit trail either way.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0063",
+    "kind": "filler",
+    "title": "Ledger access controls for support agents",
+    "body": "Access controls available to support agents in Ledger, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0064",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership",
+    "body": "Workspace and membership administration in Dispatch as it affects administrators, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0065",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal",
+    "body": "Building and sharing views in Signal for administrators, including scheduling and export formats. The same procedure applies in every region.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0066",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports",
+    "body": "Building and sharing views in Atlas Reports for administrators, including scheduling and export formats. Changes take effect on the next request; no restart is needed.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0067",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership",
+    "body": "Workspace and membership administration in Atlas Reports as it affects developers, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0068",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems",
+    "body": "How Vault exchanges data with other systems, and what support agents should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0069",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership",
+    "body": "Workspace and membership administration in Atlas Reports as it affects administrators, from invitation through to removal. Historical records are never rewritten by this change.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0070",
+    "kind": "filler",
+    "title": "Keeping Dispatch responsive at scale",
+    "body": "What governs responsiveness in Dispatch for analysts, and which settings are worth changing before contacting support. An entry is added to the audit trail either way.",
+    "category": "performance",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0071",
+    "kind": "filler",
+    "title": "Getting analysts started with Dispatch",
+    "body": "A first-week checklist for analysts setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. The default is deliberately conservative and suits most teams.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0072",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for support agents",
+    "body": "This article explains how Ledger usage is measured for support agents and where the totals appear in the statement. Limits are advisory and can be raised on request.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0073",
+    "kind": "filler",
+    "title": "Getting support agents started with Signal",
+    "body": "A first-week checklist for support agents setting up Signal: invite the team, pick a workspace name, and confirm notification defaults. The same procedure applies in every region.",
+    "category": "onboarding",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0074",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems",
+    "body": "How Atlas Reports exchanges data with other systems, and what support agents should check when a connection is first established. Changes take effect on the next request; no restart is needed.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0075",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Vault",
+    "body": "Building and sharing views in Vault for analysts, including scheduling and export formats. Only workspace owners can complete the final step.",
+    "category": "reporting",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0076",
+    "kind": "filler",
+    "title": "Getting developers started with Vault",
+    "body": "A first-week checklist for developers setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. The setting is per workspace, not per user.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0077",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for developers",
+    "body": "This article explains how Ledger usage is measured for developers and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0078",
+    "kind": "filler",
+    "title": "Getting analysts started with Atlas Reports",
+    "body": "A first-week checklist for analysts setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0079",
+    "kind": "filler",
+    "title": "Dispatch access controls for administrators",
+    "body": "Access controls available to administrators in Dispatch, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0080",
+    "kind": "filler",
+    "title": "Getting administrators started with Atlas Reports",
+    "body": "A first-week checklist for administrators setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. Limits are advisory and can be raised on request.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0081",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale",
+    "body": "What governs responsiveness in Vault for support agents, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0082",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale",
+    "body": "What governs responsiveness in Signal for administrators, and which settings are worth changing before contacting support. Changes take effect on the next request; no restart is needed.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0083",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for developers",
+    "body": "This article explains how Atlas Reports usage is measured for developers and where the totals appear in the statement. Only workspace owners can complete the final step.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0084",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems",
+    "body": "How Dispatch exchanges data with other systems, and what developers should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0085",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour",
+    "body": "Diagnostic steps for analysts when Signal behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0086",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems",
+    "body": "How Dispatch exchanges data with other systems, and what analysts should check when a connection is first established. An entry is added to the audit trail either way.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0087",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour",
+    "body": "Diagnostic steps for developers when Dispatch behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0088",
+    "kind": "filler",
+    "title": "How Vault usage is counted for analysts",
+    "body": "This article explains how Vault usage is measured for analysts and where the totals appear in the statement. Limits are advisory and can be raised on request.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0089",
+    "kind": "filler",
+    "title": "Getting analysts started with Vault",
+    "body": "A first-week checklist for analysts setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. The same procedure applies in every region.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0090",
+    "kind": "filler",
+    "title": "Getting developers started with Dispatch",
+    "body": "A first-week checklist for developers setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0091",
+    "kind": "filler",
+    "title": "Keeping Dispatch responsive at scale",
+    "body": "What governs responsiveness in Dispatch for developers, and which settings are worth changing before contacting support. Only workspace owners can complete the final step.",
+    "category": "performance",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0092",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems",
+    "body": "How Dispatch exchanges data with other systems, and what administrators should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0093",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal",
+    "body": "Building and sharing views in Signal for analysts, including scheduling and export formats. Historical records are never rewritten by this change.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0094",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour",
+    "body": "Diagnostic steps for support agents when Ledger behaves unexpectedly, starting with the activity log and working outwards. An entry is added to the audit trail either way.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0095",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Vault behaviour",
+    "body": "Diagnostic steps for support agents when Vault behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0096",
+    "kind": "filler",
+    "title": "Ledger access controls for administrators",
+    "body": "Access controls available to administrators in Ledger, including role assignment, session length, and audit visibility. Limits are advisory and can be raised on request.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0097",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale",
+    "body": "What governs responsiveness in Signal for analysts, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0098",
+    "kind": "filler",
+    "title": "How Signal usage is counted for administrators",
+    "body": "This article explains how Signal usage is measured for administrators and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0099",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems",
+    "body": "How Vault exchanges data with other systems, and what administrators should check when a connection is first established. Only workspace owners can complete the final step.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0100",
+    "kind": "filler",
+    "title": "Getting administrators started with Ledger",
+    "body": "A first-week checklist for administrators setting up Ledger: invite the team, pick a workspace name, and confirm notification defaults. The setting is per workspace, not per user.",
+    "category": "onboarding",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0101",
+    "kind": "filler",
+    "title": "How Vault usage is counted for developers",
+    "body": "This article explains how Vault usage is measured for developers and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0102",
+    "kind": "filler",
+    "title": "Signal access controls for support agents",
+    "body": "Access controls available to support agents in Signal, including role assignment, session length, and audit visibility. An entry is added to the audit trail either way.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0103",
+    "kind": "filler",
+    "title": "Dispatch access controls for developers",
+    "body": "Access controls available to developers in Dispatch, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0104",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems",
+    "body": "How Atlas Reports exchanges data with other systems, and what analysts should check when a connection is first established. Limits are advisory and can be raised on request.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0105",
+    "kind": "filler",
+    "title": "Getting administrators started with Vault",
+    "body": "A first-week checklist for administrators setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. The same procedure applies in every region.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0106",
+    "kind": "filler",
+    "title": "Vault access controls for administrators",
+    "body": "Access controls available to administrators in Vault, including role assignment, session length, and audit visibility. Changes take effect on the next request; no restart is needed.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0107",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Ledger",
+    "body": "Building and sharing views in Ledger for administrators, including scheduling and export formats. Only workspace owners can complete the final step.",
+    "category": "reporting",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0108",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour",
+    "body": "Diagnostic steps for developers when Signal behaves unexpectedly, starting with the activity log and working outwards. The setting is per workspace, not per user.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0109",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership",
+    "body": "Workspace and membership administration in Vault as it affects analysts, from invitation through to removal. Historical records are never rewritten by this change.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0110",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports",
+    "body": "Building and sharing views in Atlas Reports for analysts, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0111",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports",
+    "body": "Building and sharing views in Atlas Reports for developers, including scheduling and export formats. The default is deliberately conservative and suits most teams.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0112",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale",
+    "body": "What governs responsiveness in Atlas Reports for administrators, and which settings are worth changing before contacting support. Limits are advisory and can be raised on request.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0113",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour",
+    "body": "Diagnostic steps for developers when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. The same procedure applies in every region.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0114",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems",
+    "body": "How Ledger exchanges data with other systems, and what support agents should check when a connection is first established. Changes take effect on the next request; no restart is needed.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0115",
+    "kind": "filler",
+    "title": "How Dispatch usage is counted for administrators",
+    "body": "This article explains how Dispatch usage is measured for administrators and where the totals appear in the statement. Only workspace owners can complete the final step.",
+    "category": "billing",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0116",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems",
+    "body": "How Atlas Reports exchanges data with other systems, and what developers should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0117",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for administrators",
+    "body": "This article explains how Atlas Reports usage is measured for administrators and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0118",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems",
+    "body": "How Vault exchanges data with other systems, and what developers should check when a connection is first established. An entry is added to the audit trail either way.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0119",
+    "kind": "filler",
+    "title": "How Vault usage is counted for support agents",
+    "body": "This article explains how Vault usage is measured for support agents and where the totals appear in the statement. The default is deliberately conservative and suits most teams.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0120",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership",
+    "body": "Workspace and membership administration in Ledger as it affects administrators, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0121",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems",
+    "body": "How Signal exchanges data with other systems, and what support agents should check when a connection is first established. The same procedure applies in every region.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0122",
+    "kind": "filler",
+    "title": "Getting support agents started with Dispatch",
+    "body": "A first-week checklist for support agents setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0123",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership",
+    "body": "Workspace and membership administration in Atlas Reports as it affects support agents, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0124",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour",
+    "body": "Diagnostic steps for analysts when Ledger behaves unexpectedly, starting with the activity log and working outwards. The setting is per workspace, not per user.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0125",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership",
+    "body": "Workspace and membership administration in Atlas Reports as it affects analysts, from invitation through to removal. Historical records are never rewritten by this change.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0126",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership",
+    "body": "Workspace and membership administration in Signal as it affects support agents, from invitation through to removal. An entry is added to the audit trail either way.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0127",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour",
+    "body": "Diagnostic steps for administrators when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0128",
+    "kind": "filler",
+    "title": "Getting support agents started with Atlas Reports",
+    "body": "A first-week checklist for support agents setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. Limits are advisory and can be raised on request.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0129",
+    "kind": "filler",
+    "title": "Ledger access controls for analysts",
+    "body": "Access controls available to analysts in Ledger, including role assignment, session length, and audit visibility. The same procedure applies in every region.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0130",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership",
+    "body": "Workspace and membership administration in Dispatch as it affects analysts, from invitation through to removal. Changes take effect on the next request; no restart is needed.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0131",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour",
+    "body": "Diagnostic steps for administrators when Dispatch behaves unexpectedly, starting with the activity log and working outwards. Only workspace owners can complete the final step.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0132",
+    "kind": "filler",
+    "title": "How Signal usage is counted for developers",
+    "body": "This article explains how Signal usage is measured for developers and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0133",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for administrators",
+    "body": "Access controls available to administrators in Atlas Reports, including role assignment, session length, and audit visibility. Historical records are never rewritten by this change.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0134",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch",
+    "body": "Building and sharing views in Dispatch for support agents, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0135",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems",
+    "body": "How Vault exchanges data with other systems, and what analysts should check when a connection is first established. The default is deliberately conservative and suits most teams.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0136",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership",
+    "body": "Workspace and membership administration in Ledger as it affects developers, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0137",
+    "kind": "filler",
+    "title": "How Vault usage is counted for administrators",
+    "body": "This article explains how Vault usage is measured for administrators and where the totals appear in the statement. The same procedure applies in every region.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0138",
+    "kind": "filler",
+    "title": "Getting administrators started with Dispatch",
+    "body": "A first-week checklist for administrators setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0139",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems",
+    "body": "How Dispatch exchanges data with other systems, and what support agents should check when a connection is first established. Only workspace owners can complete the final step.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0140",
+    "kind": "filler",
+    "title": "Getting developers started with Atlas Reports",
+    "body": "A first-week checklist for developers setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. The setting is per workspace, not per user.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0141",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Vault behaviour",
+    "body": "Diagnostic steps for developers when Vault behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0142",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale",
+    "body": "What governs responsiveness in Ledger for developers, and which settings are worth changing before contacting support. An entry is added to the audit trail either way.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0143",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch",
+    "body": "Building and sharing views in Dispatch for administrators, including scheduling and export formats. The default is deliberately conservative and suits most teams.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0144",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale",
+    "body": "What governs responsiveness in Signal for developers, and which settings are worth changing before contacting support. Limits are advisory and can be raised on request.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0145",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems",
+    "body": "How Atlas Reports exchanges data with other systems, and what administrators should check when a connection is first established. The same procedure applies in every region.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0146",
+    "kind": "filler",
+    "title": "How Dispatch usage is counted for developers",
+    "body": "This article explains how Dispatch usage is measured for developers and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0147",
+    "kind": "filler",
+    "title": "Vault access controls for analysts",
+    "body": "Access controls available to analysts in Vault, including role assignment, session length, and audit visibility. Only workspace owners can complete the final step.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0148",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership",
+    "body": "Workspace and membership administration in Dispatch as it affects developers, from invitation through to removal. The setting is per workspace, not per user.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0149",
+    "kind": "filler",
+    "title": "Getting support agents started with Ledger",
+    "body": "A first-week checklist for support agents setting up Ledger: invite the team, pick a workspace name, and confirm notification defaults. Historical records are never rewritten by this change.",
+    "category": "onboarding",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0150",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Ledger",
+    "body": "Building and sharing views in Ledger for analysts, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0151",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership",
+    "body": "Workspace and membership administration in Signal as it affects analysts, from invitation through to removal. The default is deliberately conservative and suits most teams.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0152",
+    "kind": "filler",
+    "title": "Keeping Dispatch responsive at scale",
+    "body": "What governs responsiveness in Dispatch for support agents, and which settings are worth changing before contacting support. Limits are advisory and can be raised on request.",
+    "category": "performance",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0153",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Vault behaviour",
+    "body": "Diagnostic steps for analysts when Vault behaves unexpectedly, starting with the activity log and working outwards. The same procedure applies in every region.",
+    "category": "troubleshooting",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0154",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Vault",
+    "body": "Building and sharing views in Vault for administrators, including scheduling and export formats. Changes take effect on the next request; no restart is needed.",
+    "category": "reporting",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0155",
+    "kind": "filler",
+    "title": "Keeping Dispatch responsive at scale",
+    "body": "What governs responsiveness in Dispatch for administrators, and which settings are worth changing before contacting support. Only workspace owners can complete the final step.",
+    "category": "performance",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0156",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Vault",
+    "body": "Building and sharing views in Vault for developers, including scheduling and export formats. The setting is per workspace, not per user.",
+    "category": "reporting",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0157",
+    "kind": "filler",
+    "title": "How Dispatch usage is counted for analysts",
+    "body": "This article explains how Dispatch usage is measured for analysts and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0158",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Ledger",
+    "body": "Building and sharing views in Ledger for support agents, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0159",
+    "kind": "filler",
+    "title": "Signal access controls for developers",
+    "body": "Access controls available to developers in Signal, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0160",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale",
+    "body": "What governs responsiveness in Atlas Reports for developers, and which settings are worth changing before contacting support. Limits are advisory and can be raised on request.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0161",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems",
+    "body": "How Ledger exchanges data with other systems, and what analysts should check when a connection is first established. The same procedure applies in every region.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0162",
+    "kind": "filler",
+    "title": "Getting analysts started with Signal",
+    "body": "A first-week checklist for analysts setting up Signal: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0163",
+    "kind": "filler",
+    "title": "Getting developers started with Ledger",
+    "body": "A first-week checklist for developers setting up Ledger: invite the team, pick a workspace name, and confirm notification defaults. Only workspace owners can complete the final step.",
+    "category": "onboarding",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0164",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for analysts",
+    "body": "This article explains how Atlas Reports usage is measured for analysts and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0165",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for developers",
+    "body": "Access controls available to developers in Atlas Reports, including role assignment, session length, and audit visibility. Historical records are never rewritten by this change.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0166",
+    "kind": "filler",
+    "title": "Getting administrators started with Signal",
+    "body": "A first-week checklist for administrators setting up Signal: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0167",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Vault behaviour",
+    "body": "Diagnostic steps for administrators when Vault behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0168",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour",
+    "body": "Diagnostic steps for support agents when Signal behaves unexpectedly, starting with the activity log and working outwards. Limits are advisory and can be raised on request.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0169",
+    "kind": "filler",
+    "title": "Vault access controls for support agents",
+    "body": "Access controls available to support agents in Vault, including role assignment, session length, and audit visibility. The same procedure applies in every region.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0170",
+    "kind": "filler",
+    "title": "Dispatch access controls for analysts (revision 2)",
+    "body": "Access controls available to analysts in Dispatch, including role assignment, session length, and audit visibility. Changes take effect on the next request; no restart is needed.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0171",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Vault as it affects developers, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0172",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Vault as it affects support agents, from invitation through to removal. The setting is per workspace, not per user.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0173",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour (revision 2)",
+    "body": "Diagnostic steps for analysts when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0174",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour (revision 2)",
+    "body": "Diagnostic steps for developers when Ledger behaves unexpectedly, starting with the activity log and working outwards. An entry is added to the audit trail either way.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0175",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour (revision 2)",
+    "body": "Diagnostic steps for support agents when Dispatch behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0176",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal (revision 2)",
+    "body": "Building and sharing views in Signal for developers, including scheduling and export formats. Limits are advisory and can be raised on request.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0177",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Ledger for support agents, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0178",
+    "kind": "filler",
+    "title": "How Dispatch usage is counted for support agents (revision 2)",
+    "body": "This article explains how Dispatch usage is measured for support agents and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0179",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour (revision 2)",
+    "body": "Diagnostic steps for analysts when Dispatch behaves unexpectedly, starting with the activity log and working outwards. Only workspace owners can complete the final step.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0180",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Ledger as it affects support agents, from invitation through to removal. The setting is per workspace, not per user.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0181",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Atlas Reports for analysts, and which settings are worth changing before contacting support. Historical records are never rewritten by this change.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0182",
+    "kind": "filler",
+    "title": "Getting support agents started with Vault (revision 2)",
+    "body": "A first-week checklist for support agents setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0183",
+    "kind": "filler",
+    "title": "Signal access controls for administrators (revision 2)",
+    "body": "Access controls available to administrators in Signal, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0184",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal (revision 2)",
+    "body": "Building and sharing views in Signal for support agents, including scheduling and export formats. Limits are advisory and can be raised on request.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0185",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Vault (revision 2)",
+    "body": "Building and sharing views in Vault for support agents, including scheduling and export formats. The same procedure applies in every region.",
+    "category": "reporting",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0186",
+    "kind": "filler",
+    "title": "How Signal usage is counted for analysts (revision 2)",
+    "body": "This article explains how Signal usage is measured for analysts and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0187",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour (revision 2)",
+    "body": "Diagnostic steps for support agents when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. Only workspace owners can complete the final step.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0188",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch (revision 2)",
+    "body": "Building and sharing views in Dispatch for developers, including scheduling and export formats. The setting is per workspace, not per user.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0189",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour (revision 2)",
+    "body": "Diagnostic steps for administrators when Signal behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0190",
+    "kind": "filler",
+    "title": "Getting analysts started with Ledger (revision 2)",
+    "body": "A first-week checklist for analysts setting up Ledger: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0191",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems (revision 2)",
+    "body": "How Ledger exchanges data with other systems, and what administrators should check when a connection is first established. The default is deliberately conservative and suits most teams.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0192",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Vault as it affects administrators, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0193",
+    "kind": "filler",
+    "title": "Ledger access controls for developers (revision 2)",
+    "body": "Access controls available to developers in Ledger, including role assignment, session length, and audit visibility. The same procedure applies in every region.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0194",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Atlas Reports for support agents, and which settings are worth changing before contacting support. Changes take effect on the next request; no restart is needed.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0195",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Ledger for analysts, and which settings are worth changing before contacting support. Only workspace owners can complete the final step.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0196",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for analysts (revision 2)",
+    "body": "This article explains how Ledger usage is measured for analysts and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0197",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Vault for analysts, and which settings are worth changing before contacting support. Historical records are never rewritten by this change.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0198",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems (revision 2)",
+    "body": "How Signal exchanges data with other systems, and what developers should check when a connection is first established. An entry is added to the audit trail either way.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0199",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Signal for support agents, and which settings are worth changing before contacting support. The default is deliberately conservative and suits most teams.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0200",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Ledger (revision 2)",
+    "body": "Building and sharing views in Ledger for developers, including scheduling and export formats. Limits are advisory and can be raised on request.",
+    "category": "reporting",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0201",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Vault for administrators, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0202",
+    "kind": "filler",
+    "title": "Getting developers started with Signal (revision 2)",
+    "body": "A first-week checklist for developers setting up Signal: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0203",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Signal as it affects administrators, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0204",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems (revision 2)",
+    "body": "How Signal exchanges data with other systems, and what administrators should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0205",
+    "kind": "filler",
+    "title": "Signal access controls for analysts (revision 2)",
+    "body": "Access controls available to analysts in Signal, including role assignment, session length, and audit visibility. Historical records are never rewritten by this change.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0206",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch (revision 2)",
+    "body": "Building and sharing views in Dispatch for analysts, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0207",
+    "kind": "filler",
+    "title": "How Signal usage is counted for support agents (revision 2)",
+    "body": "This article explains how Signal usage is measured for support agents and where the totals appear in the statement. The default is deliberately conservative and suits most teams.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0208",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems (revision 2)",
+    "body": "How Ledger exchanges data with other systems, and what developers should check when a connection is first established. Limits are advisory and can be raised on request.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0209",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems (revision 2)",
+    "body": "How Signal exchanges data with other systems, and what analysts should check when a connection is first established. The same procedure applies in every region.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0210",
+    "kind": "filler",
+    "title": "Dispatch access controls for support agents (revision 2)",
+    "body": "Access controls available to support agents in Dispatch, including role assignment, session length, and audit visibility. Changes take effect on the next request; no restart is needed.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0211",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Signal as it affects developers, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0212",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Vault for developers, and which settings are worth changing before contacting support. The setting is per workspace, not per user.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0213",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for administrators (revision 2)",
+    "body": "This article explains how Ledger usage is measured for administrators and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0214",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for analysts (revision 2)",
+    "body": "Access controls available to analysts in Atlas Reports, including role assignment, session length, and audit visibility. An entry is added to the audit trail either way.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0215",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Ledger as it affects analysts, from invitation through to removal. The default is deliberately conservative and suits most teams.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0216",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for support agents (revision 2)",
+    "body": "Access controls available to support agents in Atlas Reports, including role assignment, session length, and audit visibility. Limits are advisory and can be raised on request.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0217",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Dispatch as it affects support agents, from invitation through to removal. The same procedure applies in every region.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0218",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports (revision 2)",
+    "body": "Building and sharing views in Atlas Reports for support agents, including scheduling and export formats. Changes take effect on the next request; no restart is needed.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0219",
+    "kind": "filler",
+    "title": "Vault access controls for developers (revision 2)",
+    "body": "Access controls available to developers in Vault, including role assignment, session length, and audit visibility. Only workspace owners can complete the final step.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0220",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for support agents (revision 2)",
+    "body": "This article explains how Atlas Reports usage is measured for support agents and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0221",
+    "kind": "filler",
+    "title": "Keeping Ledger responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Ledger for administrators, and which settings are worth changing before contacting support. Historical records are never rewritten by this change.",
+    "category": "performance",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0222",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour (revision 2)",
+    "body": "Diagnostic steps for administrators when Ledger behaves unexpectedly, starting with the activity log and working outwards. An entry is added to the audit trail either way.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0223",
+    "kind": "filler",
+    "title": "Ledger access controls for support agents (revision 2)",
+    "body": "Access controls available to support agents in Ledger, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0224",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Dispatch as it affects administrators, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0225",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal (revision 2)",
+    "body": "Building and sharing views in Signal for administrators, including scheduling and export formats. The same procedure applies in every region.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0226",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports (revision 2)",
+    "body": "Building and sharing views in Atlas Reports for administrators, including scheduling and export formats. Changes take effect on the next request; no restart is needed.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0227",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Atlas Reports as it affects developers, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0228",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems (revision 2)",
+    "body": "How Vault exchanges data with other systems, and what support agents should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0229",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Atlas Reports as it affects administrators, from invitation through to removal. Historical records are never rewritten by this change.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0230",
+    "kind": "filler",
+    "title": "Keeping Dispatch responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Dispatch for analysts, and which settings are worth changing before contacting support. An entry is added to the audit trail either way.",
+    "category": "performance",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0231",
+    "kind": "filler",
+    "title": "Getting analysts started with Dispatch (revision 2)",
+    "body": "A first-week checklist for analysts setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. The default is deliberately conservative and suits most teams.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0232",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for support agents (revision 2)",
+    "body": "This article explains how Ledger usage is measured for support agents and where the totals appear in the statement. Limits are advisory and can be raised on request.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0233",
+    "kind": "filler",
+    "title": "Getting support agents started with Signal (revision 2)",
+    "body": "A first-week checklist for support agents setting up Signal: invite the team, pick a workspace name, and confirm notification defaults. The same procedure applies in every region.",
+    "category": "onboarding",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0234",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems (revision 2)",
+    "body": "How Atlas Reports exchanges data with other systems, and what support agents should check when a connection is first established. Changes take effect on the next request; no restart is needed.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0235",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Vault (revision 2)",
+    "body": "Building and sharing views in Vault for analysts, including scheduling and export formats. Only workspace owners can complete the final step.",
+    "category": "reporting",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0236",
+    "kind": "filler",
+    "title": "Getting developers started with Vault (revision 2)",
+    "body": "A first-week checklist for developers setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. The setting is per workspace, not per user.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0237",
+    "kind": "filler",
+    "title": "How Ledger usage is counted for developers (revision 2)",
+    "body": "This article explains how Ledger usage is measured for developers and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0238",
+    "kind": "filler",
+    "title": "Getting analysts started with Atlas Reports (revision 2)",
+    "body": "A first-week checklist for analysts setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. An entry is added to the audit trail either way.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0239",
+    "kind": "filler",
+    "title": "Dispatch access controls for administrators (revision 2)",
+    "body": "Access controls available to administrators in Dispatch, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0240",
+    "kind": "filler",
+    "title": "Getting administrators started with Atlas Reports (revision 2)",
+    "body": "A first-week checklist for administrators setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. Limits are advisory and can be raised on request.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0241",
+    "kind": "filler",
+    "title": "Keeping Vault responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Vault for support agents, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0242",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Signal for administrators, and which settings are worth changing before contacting support. Changes take effect on the next request; no restart is needed.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0243",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for developers (revision 2)",
+    "body": "This article explains how Atlas Reports usage is measured for developers and where the totals appear in the statement. Only workspace owners can complete the final step.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0244",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems (revision 2)",
+    "body": "How Dispatch exchanges data with other systems, and what developers should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0245",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour (revision 2)",
+    "body": "Diagnostic steps for analysts when Signal behaves unexpectedly, starting with the activity log and working outwards. Historical records are never rewritten by this change.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0246",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems (revision 2)",
+    "body": "How Dispatch exchanges data with other systems, and what analysts should check when a connection is first established. An entry is added to the audit trail either way.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0247",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour (revision 2)",
+    "body": "Diagnostic steps for developers when Dispatch behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0248",
+    "kind": "filler",
+    "title": "How Vault usage is counted for analysts (revision 2)",
+    "body": "This article explains how Vault usage is measured for analysts and where the totals appear in the statement. Limits are advisory and can be raised on request.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0249",
+    "kind": "filler",
+    "title": "Getting analysts started with Vault (revision 2)",
+    "body": "A first-week checklist for analysts setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. The same procedure applies in every region.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0250",
+    "kind": "filler",
+    "title": "Getting developers started with Dispatch (revision 2)",
+    "body": "A first-week checklist for developers setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0251",
+    "kind": "filler",
+    "title": "Keeping Dispatch responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Dispatch for developers, and which settings are worth changing before contacting support. Only workspace owners can complete the final step.",
+    "category": "performance",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0252",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems (revision 2)",
+    "body": "How Dispatch exchanges data with other systems, and what administrators should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0253",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Signal (revision 2)",
+    "body": "Building and sharing views in Signal for analysts, including scheduling and export formats. Historical records are never rewritten by this change.",
+    "category": "reporting",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0254",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour (revision 2)",
+    "body": "Diagnostic steps for support agents when Ledger behaves unexpectedly, starting with the activity log and working outwards. An entry is added to the audit trail either way.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0255",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Vault behaviour (revision 2)",
+    "body": "Diagnostic steps for support agents when Vault behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0256",
+    "kind": "filler",
+    "title": "Ledger access controls for administrators (revision 2)",
+    "body": "Access controls available to administrators in Ledger, including role assignment, session length, and audit visibility. Limits are advisory and can be raised on request.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0257",
+    "kind": "filler",
+    "title": "Keeping Signal responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Signal for analysts, and which settings are worth changing before contacting support. The same procedure applies in every region.",
+    "category": "performance",
+    "product": "Signal",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0258",
+    "kind": "filler",
+    "title": "How Signal usage is counted for administrators (revision 2)",
+    "body": "This article explains how Signal usage is measured for administrators and where the totals appear in the statement. Changes take effect on the next request; no restart is needed.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0259",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems (revision 2)",
+    "body": "How Vault exchanges data with other systems, and what administrators should check when a connection is first established. Only workspace owners can complete the final step.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0260",
+    "kind": "filler",
+    "title": "Getting administrators started with Ledger (revision 2)",
+    "body": "A first-week checklist for administrators setting up Ledger: invite the team, pick a workspace name, and confirm notification defaults. The setting is per workspace, not per user.",
+    "category": "onboarding",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0261",
+    "kind": "filler",
+    "title": "How Vault usage is counted for developers (revision 2)",
+    "body": "This article explains how Vault usage is measured for developers and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0262",
+    "kind": "filler",
+    "title": "Signal access controls for support agents (revision 2)",
+    "body": "Access controls available to support agents in Signal, including role assignment, session length, and audit visibility. An entry is added to the audit trail either way.",
+    "category": "security",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0263",
+    "kind": "filler",
+    "title": "Dispatch access controls for developers (revision 2)",
+    "body": "Access controls available to developers in Dispatch, including role assignment, session length, and audit visibility. The default is deliberately conservative and suits most teams.",
+    "category": "security",
+    "product": "Dispatch",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0264",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems (revision 2)",
+    "body": "How Atlas Reports exchanges data with other systems, and what analysts should check when a connection is first established. Limits are advisory and can be raised on request.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0265",
+    "kind": "filler",
+    "title": "Getting administrators started with Vault (revision 2)",
+    "body": "A first-week checklist for administrators setting up Vault: invite the team, pick a workspace name, and confirm notification defaults. The same procedure applies in every region.",
+    "category": "onboarding",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0266",
+    "kind": "filler",
+    "title": "Vault access controls for administrators (revision 2)",
+    "body": "Access controls available to administrators in Vault, including role assignment, session length, and audit visibility. Changes take effect on the next request; no restart is needed.",
+    "category": "security",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0267",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Ledger (revision 2)",
+    "body": "Building and sharing views in Ledger for administrators, including scheduling and export formats. Only workspace owners can complete the final step.",
+    "category": "reporting",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0268",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Signal behaviour (revision 2)",
+    "body": "Diagnostic steps for developers when Signal behaves unexpectedly, starting with the activity log and working outwards. The setting is per workspace, not per user.",
+    "category": "troubleshooting",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0269",
+    "kind": "filler",
+    "title": "Managing Vault workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Vault as it affects analysts, from invitation through to removal. Historical records are never rewritten by this change.",
+    "category": "account",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0270",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports (revision 2)",
+    "body": "Building and sharing views in Atlas Reports for analysts, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0271",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Atlas Reports (revision 2)",
+    "body": "Building and sharing views in Atlas Reports for developers, including scheduling and export formats. The default is deliberately conservative and suits most teams.",
+    "category": "reporting",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0272",
+    "kind": "filler",
+    "title": "Keeping Atlas Reports responsive at scale (revision 2)",
+    "body": "What governs responsiveness in Atlas Reports for administrators, and which settings are worth changing before contacting support. Limits are advisory and can be raised on request.",
+    "category": "performance",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0273",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour (revision 2)",
+    "body": "Diagnostic steps for developers when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. The same procedure applies in every region.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0274",
+    "kind": "filler",
+    "title": "Connecting Ledger to other systems (revision 2)",
+    "body": "How Ledger exchanges data with other systems, and what support agents should check when a connection is first established. Changes take effect on the next request; no restart is needed.",
+    "category": "integrations",
+    "product": "Ledger",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0275",
+    "kind": "filler",
+    "title": "How Dispatch usage is counted for administrators (revision 2)",
+    "body": "This article explains how Dispatch usage is measured for administrators and where the totals appear in the statement. Only workspace owners can complete the final step.",
+    "category": "billing",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0276",
+    "kind": "filler",
+    "title": "Connecting Atlas Reports to other systems (revision 2)",
+    "body": "How Atlas Reports exchanges data with other systems, and what developers should check when a connection is first established. The setting is per workspace, not per user.",
+    "category": "integrations",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0277",
+    "kind": "filler",
+    "title": "How Atlas Reports usage is counted for administrators (revision 2)",
+    "body": "This article explains how Atlas Reports usage is measured for administrators and where the totals appear in the statement. Historical records are never rewritten by this change.",
+    "category": "billing",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0278",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems (revision 2)",
+    "body": "How Vault exchanges data with other systems, and what developers should check when a connection is first established. An entry is added to the audit trail either way.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0279",
+    "kind": "filler",
+    "title": "How Vault usage is counted for support agents (revision 2)",
+    "body": "This article explains how Vault usage is measured for support agents and where the totals appear in the statement. The default is deliberately conservative and suits most teams.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0280",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Ledger as it affects administrators, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0281",
+    "kind": "filler",
+    "title": "Connecting Signal to other systems (revision 2)",
+    "body": "How Signal exchanges data with other systems, and what support agents should check when a connection is first established. The same procedure applies in every region.",
+    "category": "integrations",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0282",
+    "kind": "filler",
+    "title": "Getting support agents started with Dispatch (revision 2)",
+    "body": "A first-week checklist for support agents setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0283",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Atlas Reports as it affects support agents, from invitation through to removal. Only workspace owners can complete the final step.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0284",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Ledger behaviour (revision 2)",
+    "body": "Diagnostic steps for analysts when Ledger behaves unexpectedly, starting with the activity log and working outwards. The setting is per workspace, not per user.",
+    "category": "troubleshooting",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0285",
+    "kind": "filler",
+    "title": "Managing Atlas Reports workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Atlas Reports as it affects analysts, from invitation through to removal. Historical records are never rewritten by this change.",
+    "category": "account",
+    "product": "Atlas Reports",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0286",
+    "kind": "filler",
+    "title": "Managing Signal workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Signal as it affects support agents, from invitation through to removal. An entry is added to the audit trail either way.",
+    "category": "account",
+    "product": "Signal",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0287",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Atlas Reports behaviour (revision 2)",
+    "body": "Diagnostic steps for administrators when Atlas Reports behaves unexpectedly, starting with the activity log and working outwards. The default is deliberately conservative and suits most teams.",
+    "category": "troubleshooting",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0288",
+    "kind": "filler",
+    "title": "Getting support agents started with Atlas Reports (revision 2)",
+    "body": "A first-week checklist for support agents setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. Limits are advisory and can be raised on request.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0289",
+    "kind": "filler",
+    "title": "Ledger access controls for analysts (revision 2)",
+    "body": "Access controls available to analysts in Ledger, including role assignment, session length, and audit visibility. The same procedure applies in every region.",
+    "category": "security",
+    "product": "Ledger",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0290",
+    "kind": "filler",
+    "title": "Managing Dispatch workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Dispatch as it affects analysts, from invitation through to removal. Changes take effect on the next request; no restart is needed.",
+    "category": "account",
+    "product": "Dispatch",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0291",
+    "kind": "filler",
+    "title": "Diagnosing unexpected Dispatch behaviour (revision 2)",
+    "body": "Diagnostic steps for administrators when Dispatch behaves unexpectedly, starting with the activity log and working outwards. Only workspace owners can complete the final step.",
+    "category": "troubleshooting",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0292",
+    "kind": "filler",
+    "title": "How Signal usage is counted for developers (revision 2)",
+    "body": "This article explains how Signal usage is measured for developers and where the totals appear in the statement. The setting is per workspace, not per user.",
+    "category": "billing",
+    "product": "Signal",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0293",
+    "kind": "filler",
+    "title": "Atlas Reports access controls for administrators (revision 2)",
+    "body": "Access controls available to administrators in Atlas Reports, including role assignment, session length, and audit visibility. Historical records are never rewritten by this change.",
+    "category": "security",
+    "product": "Atlas Reports",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0294",
+    "kind": "filler",
+    "title": "Views, schedules and exports in Dispatch (revision 2)",
+    "body": "Building and sharing views in Dispatch for support agents, including scheduling and export formats. An entry is added to the audit trail either way.",
+    "category": "reporting",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0295",
+    "kind": "filler",
+    "title": "Connecting Vault to other systems (revision 2)",
+    "body": "How Vault exchanges data with other systems, and what analysts should check when a connection is first established. The default is deliberately conservative and suits most teams.",
+    "category": "integrations",
+    "product": "Vault",
+    "audience": "analysts"
+  },
+  {
+    "doc_id": "KB-0296",
+    "kind": "filler",
+    "title": "Managing Ledger workspaces and membership (revision 2)",
+    "body": "Workspace and membership administration in Ledger as it affects developers, from invitation through to removal. Limits are advisory and can be raised on request.",
+    "category": "account",
+    "product": "Ledger",
+    "audience": "developers"
+  },
+  {
+    "doc_id": "KB-0297",
+    "kind": "filler",
+    "title": "How Vault usage is counted for administrators (revision 2)",
+    "body": "This article explains how Vault usage is measured for administrators and where the totals appear in the statement. The same procedure applies in every region.",
+    "category": "billing",
+    "product": "Vault",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0298",
+    "kind": "filler",
+    "title": "Getting administrators started with Dispatch (revision 2)",
+    "body": "A first-week checklist for administrators setting up Dispatch: invite the team, pick a workspace name, and confirm notification defaults. Changes take effect on the next request; no restart is needed.",
+    "category": "onboarding",
+    "product": "Dispatch",
+    "audience": "administrators"
+  },
+  {
+    "doc_id": "KB-0299",
+    "kind": "filler",
+    "title": "Connecting Dispatch to other systems (revision 2)",
+    "body": "How Dispatch exchanges data with other systems, and what support agents should check when a connection is first established. Only workspace owners can complete the final step.",
+    "category": "integrations",
+    "product": "Dispatch",
+    "audience": "support agents"
+  },
+  {
+    "doc_id": "KB-0300",
+    "kind": "filler",
+    "title": "Getting developers started with Atlas Reports (revision 2)",
+    "body": "A first-week checklist for developers setting up Atlas Reports: invite the team, pick a workspace name, and confirm notification defaults. The setting is per workspace, not per user.",
+    "category": "onboarding",
+    "product": "Atlas Reports",
+    "audience": "developers"
+  }
+]
