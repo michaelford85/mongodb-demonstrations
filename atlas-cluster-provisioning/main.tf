@@ -91,3 +91,33 @@ resource "mongodbatlas_database_user" "admin" {
     database_name = "admin"
   }
 }
+
+# ── Application Database User ──────────────────────────────────────────────────
+# Read/write on every database, with no administrative privileges.
+
+resource "mongodbatlas_database_user" "app" {
+  project_id         = var.atlas_project_id
+  username           = var.db_app_user
+  password           = var.db_app_password
+  auth_database_name = "admin"
+
+  roles {
+    role_name     = "readWriteAnyDatabase"
+    database_name = "admin"
+  }
+}
+
+# ── Monitoring Database User ───────────────────────────────────────────────────
+# Read-only access to server status and diagnostic commands. No data access.
+
+resource "mongodbatlas_database_user" "monitor" {
+  project_id         = var.atlas_project_id
+  username           = var.db_monitor_user
+  password           = var.db_monitor_password
+  auth_database_name = "admin"
+
+  roles {
+    role_name     = "clusterMonitor"
+    database_name = "admin"
+  }
+}

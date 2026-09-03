@@ -11,7 +11,7 @@ The shard count and the region(s) for each individual shard are driven entirely 
 | Resource | Description |
 |---|---|
 | `mongodbatlas_advanced_cluster` | A **sharded** cluster (M30+) inside an existing Atlas project. `CLUSTER_TYPE=SHARDED` (default) keeps every shard in the same region(s); `CLUSTER_TYPE=GEOSHARDED` lets each shard live in a different region by assigning it its own zone. Compute Auto-Scale enabled by default. |
-| `mongodbatlas_database_user` | An `atlasAdmin` user for connecting to the cluster |
+| `mongodbatlas_database_user` | Three users: an `atlasAdmin` admin user, a `readWriteAnyDatabase` application user, and a `clusterMonitor` monitoring user |
 | `mongodbatlas_search_deployment` | Dedicated Atlas Search nodes *(only when `CLUSTER_SEARCH_NODES > 0`)* |
 
 The configuration uses the **new sharding schema** introduced in Atlas provider 1.18 — one `replication_specs` block per shard. The deprecated `num_shards` attribute is not used, which means each shard can be placed independently.
@@ -85,6 +85,12 @@ CLUSTER_COMPUTE_MAX_INSTANCE_SIZE=
 
 DB_ADMIN_USER=admin
 DB_ADMIN_PASSWORD=<strong-password>
+
+# Application user (readWriteAnyDatabase) and monitoring user (clusterMonitor)
+DB_APP_USER=app-user
+DB_APP_PASSWORD=<strong-password>
+DB_MONITOR_USER=monitor-user
+DB_MONITOR_PASSWORD=<strong-password>
 ```
 
 > **Atlas region name format:** Atlas uses uppercase with underscores, e.g. `US_EAST_1`,
@@ -120,7 +126,7 @@ connection_strings = {
 }
 ```
 
-Use `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` from your `.env` to authenticate. The SRV string points at the cluster's `mongos` routers — your driver will automatically route reads and writes to the appropriate shard based on the shard key of each collection. (Collections are unsharded by default; use `sh.shardCollection()` from the shell to enable sharding on a specific collection.)
+Use `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` from your `.env` to authenticate. `DB_APP_USER` (read/write on all databases) and `DB_MONITOR_USER` (diagnostics only) are also created for least-privilege access. The SRV string points at the cluster's `mongos` routers — your driver will automatically route reads and writes to the appropriate shard based on the shard key of each collection. (Collections are unsharded by default; use `sh.shardCollection()` from the shell to enable sharding on a specific collection.)
 
 ---
 
@@ -130,7 +136,7 @@ Use `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` from your `.env` to authenticate. The 
 ./teardown.sh
 ```
 
-You will be prompted to type the cluster name to confirm. All resources (cluster, database user, and any dedicated search nodes) are destroyed.
+You will be prompted to type the cluster name to confirm. All resources (cluster, database users, and any dedicated search nodes) are destroyed.
 
 ---
 
@@ -224,7 +230,7 @@ CLUSTER_SHARDS='[
 
 | File | Purpose |
 |---|---|
-| `main.tf` | Provider, sharded cluster, search nodes, and admin user resources |
+| `main.tf` | Provider, sharded cluster, search nodes, and database user resources |
 | `variables.tf` | All input variable declarations |
 | `outputs.tf` | Connection strings, cluster ID, and state emitted after apply |
 | `deploy.sh` | Validates `.env`, exports `TF_VAR_*`, runs `terraform apply` |
