@@ -63,6 +63,7 @@ CLUSTER_CLOUD_PROVIDER=AWS    # AWS | GCP | AZURE — applies to every shard
 CLUSTER_INSTANCE_SIZE=M30     # M30 is the minimum tier for sharded clusters; or an NVMe tier, e.g. M40_NVME
 CLUSTER_STORAGE_CLASS=SSD     # SSD (network-attached) | NVME (local NVMe SSD)
 CLUSTER_DISK_SIZE_GB=0        # 0 = Atlas default for the tier; SSD only
+CLUSTER_BACKUP_ENABLED=false  # Atlas Cloud Backup; forced on for NVMe
 MONGODB_VERSION=8.0
 
 # Number of shards (must match the array length in CLUSTER_SHARDS)
@@ -155,6 +156,7 @@ You will be prompted to type the cluster name to confirm. All resources (cluster
 | `CLUSTER_DISK_SIZE_GB` | Configurable (`0` = Atlas default, otherwise 10–4096) | Must be `0` — capacity is fixed per tier |
 | Availability | AWS, GCP, Azure | AWS from M40, Azure from M60. Not offered on GCP |
 | Compute / disk auto-scale | Available (enabled by default) | Not supported — the auto-scale block is skipped |
+| Cloud Backup | Optional (`CLUSTER_BACKUP_ENABLED`, off by default) | Mandatory — forced on |
 
 Setting `CLUSTER_INSTANCE_SIZE=M40_NVME` directly is equivalent to `CLUSTER_INSTANCE_SIZE=M40` plus `CLUSTER_STORAGE_CLASS=NVME`; Terraform normalises the two inputs into a single tier name. Atlas requires the disk size to be equal across all shards and node types, so the value applies uniformly.
 
@@ -290,6 +292,9 @@ Local NVMe is not available on GCP. Either set `CLUSTER_STORAGE_CLASS=SSD` or sw
 
 **`CANNOT_MODIFY_DISK_SIZE_FOR_NVME_CLUSTER` / `cluster_disk_size_gb must be 0 with local NVMe storage`**
 NVMe tiers have a fixed disk capacity. Set `CLUSTER_DISK_SIZE_GB=0` and pick a larger NVMe tier if you need more space.
+
+**`Cannot create an NVMe cluster without Cloud Backup enabled` (`ATLAS_GENERAL_ERROR`)**
+Atlas requires Cloud Backup on local NVMe clusters. `deploy.sh` now forces `CLUSTER_BACKUP_ENABLED=true` whenever NVMe is selected, so re-run `./deploy.sh`. Note that backup snapshots add cost, and a sharded cluster snapshots every shard.
 
 **`HTTP 400 … INVALID_INSTANCE_SIZE` with an `_NVME` tier**
 The requested tier is not offered as NVMe in that region. NVMe starts at M40 on AWS and M60 on Azure, and not every region carries every NVMe tier — check the tier list in the Atlas UI for your region.
