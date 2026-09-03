@@ -69,6 +69,12 @@ variable "cluster_disk_size_gb" {
   }
 }
 
+variable "cluster_backup_enabled" {
+  description = "Enable Atlas Cloud Backup. Forced on for local NVMe clusters, which Atlas refuses to create without it."
+  type        = bool
+  default     = false
+}
+
 variable "mongodb_version" {
   description = "MongoDB major version (e.g. 7.0, 8.0)"
   type        = string

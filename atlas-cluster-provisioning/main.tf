@@ -41,6 +41,10 @@ locals {
   # Cluster-tier and disk auto-scaling are unavailable on the Local NVMe SSD
   # class, so the auto_scaling block is dropped entirely for NVMe clusters.
   compute_autoscale_enabled = var.cluster_compute_autoscale_enabled && !local.use_nvme
+
+  # Atlas refuses to create an NVMe cluster without Cloud Backup, so NVMe
+  # turns it on regardless of the input.
+  backup_enabled = var.cluster_backup_enabled || local.use_nvme
 }
 
 # ── Cluster ────────────────────────────────────────────────────────────────────
@@ -52,6 +56,7 @@ resource "mongodbatlas_advanced_cluster" "demo" {
   name                   = var.cluster_name
   cluster_type           = "REPLICASET"
   mongo_db_major_version = var.mongodb_version
+  backup_enabled         = local.backup_enabled
 
   replication_specs {
     dynamic "region_configs" {
