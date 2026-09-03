@@ -12,7 +12,9 @@ This folder contains a **Terraform-based script** for spinning up and tearing do
 | `mongodbatlas_database_user` | Three users: an `atlasAdmin` admin user, a `readWriteAnyDatabase` application user, and a `clusterMonitor` monitoring user |
 | `mongodbatlas_search_deployment` | Dedicated Atlas Search nodes *(only when `CLUSTER_SEARCH_NODES > 0`)* |
 
-Compute Auto-Scale is enabled with `min == max == CLUSTER_INSTANCE_SIZE` by default — the feature is on (which Atlas Automated Embedding / `autoEmbed` vector search indexes require) but the cluster does not actually scale unless you raise `CLUSTER_COMPUTE_MAX_INSTANCE_SIZE`.
+Compute Auto-Scale is enabled with `min == max == CLUSTER_INSTANCE_SIZE` by default — the feature is on (which Atlas Automated Embedding / `autoEmbed` vector search indexes require) but the cluster does not actually scale unless you raise `CLUSTER_COMPUTE_MAX_INSTANCE_SIZE`. It is skipped entirely on local NVMe clusters, which Atlas does not auto-scale.
+
+Storage is network-attached SSD by default; set `CLUSTER_STORAGE_CLASS=NVME` for local NVMe SSDs, or `CLUSTER_DISK_SIZE_GB` to size the SSD volume. See [Storage: SSD vs local NVMe](#storage-ssd-vs-local-nvme).
 
 Everything is destroyed cleanly by `teardown.sh` — no manual cleanup in the Atlas UI is needed.
 
@@ -51,7 +53,9 @@ ATLAS_PROJECT_ID=...          # Atlas UI → your project → Settings → Proje
 CLUSTER_NAME=demo-cluster
 
 CLUSTER_CLOUD_PROVIDER=AWS    # AWS | GCP | AZURE
-CLUSTER_INSTANCE_SIZE=M30
+CLUSTER_INSTANCE_SIZE=M30     # or an explicit NVMe tier, e.g. M40_NVME
+CLUSTER_STORAGE_CLASS=SSD     # SSD (network-attached) | NVME (local NVMe SSD)
+CLUSTER_DISK_SIZE_GB=0        # 0 = Atlas default for the tier; SSD only
 MONGODB_VERSION=8.0
 
 # Number of regions (must match the array length in CLUSTER_REGIONS)
@@ -128,6 +132,26 @@ You will be prompted to type the cluster name to confirm. All resources (cluster
 
 ---
 
+## Storage: SSD vs local NVMe
+
+`CLUSTER_STORAGE_CLASS` selects the storage backing the cluster.
+
+| | `SSD` (default) | `NVME` |
+|---|---|---|
+| Backing store | Network-attached SSD | Local NVMe SSD attached to the host |
+| Tier name sent to Atlas | `CLUSTER_INSTANCE_SIZE` (e.g. `M40`) | `CLUSTER_INSTANCE_SIZE` + `_NVME` (e.g. `M40_NVME`) |
+| `CLUSTER_DISK_SIZE_GB` | Configurable (`0` = Atlas default, otherwise 10–4096) | Must be `0` — capacity is fixed per tier |
+| Availability | AWS, GCP, Azure | AWS from M40, Azure from M60. Not offered on GCP |
+| Compute / disk auto-scale | Available (enabled by default) | Not supported — the auto-scale block is skipped |
+
+Setting `CLUSTER_INSTANCE_SIZE=M40_NVME` directly is equivalent to `CLUSTER_INSTANCE_SIZE=M40` plus `CLUSTER_STORAGE_CLASS=NVME`; Terraform normalises the two inputs into a single tier name.
+
+Because Atlas does not auto-scale local NVMe clusters, an NVMe cluster cannot satisfy the Compute Auto-Scale prerequisite for Atlas Automated Embedding (`autoEmbed` vector search indexes). Use `SSD` for those demos.
+
+To grow the disk on an SSD cluster, raise `CLUSTER_DISK_SIZE_GB` and re-run `./deploy.sh`.
+
+---
+
 ## Multi-Region Example
 
 To demonstrate geographic distribution — for example replicating across **Milan**, **Mumbai**, and **US East** with 7 total nodes:
@@ -174,6 +198,15 @@ The `CLUSTER_REGIONS` value in `.env` must be valid JSON. Validate it with:
 ```bash
 echo "$CLUSTER_REGIONS" | jq .
 ```
+
+**`ERROR: local NVMe storage is only offered on AWS and AZURE`**
+Local NVMe is not available on GCP. Either set `CLUSTER_STORAGE_CLASS=SSD` or switch `CLUSTER_CLOUD_PROVIDER` to `AWS`/`AZURE`.
+
+**`CANNOT_MODIFY_DISK_SIZE_FOR_NVME_CLUSTER` / `cluster_disk_size_gb must be 0 with local NVMe storage`**
+NVMe tiers have a fixed disk capacity. Set `CLUSTER_DISK_SIZE_GB=0` and pick a larger NVMe tier if you need more space.
+
+**`HTTP 400 … INVALID_INSTANCE_SIZE` with an `_NVME` tier**
+The requested tier is not offered as NVMe in that region. NVMe starts at M40 on AWS and M60 on Azure, and not every region carries every NVMe tier — check the tier list in the Atlas UI for your region.
 
 **Cluster stuck provisioning**
 Atlas clusters can occasionally take longer than expected. Check the Atlas UI → Clusters page for status. Terraform will keep waiting.

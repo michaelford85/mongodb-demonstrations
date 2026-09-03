@@ -66,6 +66,30 @@ if [ "$actual_count" -ne "$CLUSTER_NUM_REGIONS" ]; then
   exit 1
 fi
 
+# ── Storage class ──────────────────────────────────────────────────────────────
+# CLUSTER_STORAGE_CLASS is optional — default SSD. NVME selects local NVMe SSDs
+# by appending the _NVME suffix to the instance size in Terraform.
+CLUSTER_STORAGE_CLASS="$(echo "${CLUSTER_STORAGE_CLASS:-SSD}" | tr '[:lower:]' '[:upper:]')"
+if [ "$CLUSTER_STORAGE_CLASS" != "SSD" ] && [ "$CLUSTER_STORAGE_CLASS" != "NVME" ]; then
+  echo "ERROR: CLUSTER_STORAGE_CLASS must be SSD or NVME (got: $CLUSTER_STORAGE_CLASS)."
+  exit 1
+fi
+
+CLUSTER_DISK_SIZE_GB="${CLUSTER_DISK_SIZE_GB:-0}"
+
+# Local NVMe is only offered on AWS and Azure, and its disk capacity is fixed
+# per tier — Atlas rejects an explicit disk size.
+if [ "$CLUSTER_STORAGE_CLASS" = "NVME" ] || [[ "$(echo "$CLUSTER_INSTANCE_SIZE" | tr '[:lower:]' '[:upper:]')" == *_NVME ]]; then
+  if [ "$CLUSTER_CLOUD_PROVIDER" != "AWS" ] && [ "$CLUSTER_CLOUD_PROVIDER" != "AZURE" ]; then
+    echo "ERROR: local NVMe storage is only offered on AWS and AZURE (got: $CLUSTER_CLOUD_PROVIDER)."
+    exit 1
+  fi
+  if [ "$CLUSTER_DISK_SIZE_GB" != "0" ]; then
+    echo "ERROR: CLUSTER_DISK_SIZE_GB must be 0 with local NVMe storage — Atlas fixes disk capacity per NVMe tier."
+    exit 1
+  fi
+fi
+
 # ── Export as TF_VAR_* ─────────────────────────────────────────────────────────
 
 export TF_VAR_atlas_public_key="$ATLAS_PUBLIC_KEY"
@@ -74,6 +98,8 @@ export TF_VAR_atlas_project_id="$ATLAS_PROJECT_ID"
 export TF_VAR_cluster_name="$CLUSTER_NAME"
 export TF_VAR_cluster_cloud_provider="$CLUSTER_CLOUD_PROVIDER"
 export TF_VAR_cluster_instance_size="$CLUSTER_INSTANCE_SIZE"
+export TF_VAR_cluster_storage_class="$CLUSTER_STORAGE_CLASS"
+export TF_VAR_cluster_disk_size_gb="$CLUSTER_DISK_SIZE_GB"
 export TF_VAR_mongodb_version="$MONGODB_VERSION"
 export TF_VAR_cluster_regions="$CLUSTER_REGIONS"
 export TF_VAR_cluster_search_nodes="$CLUSTER_SEARCH_NODES"
@@ -92,6 +118,7 @@ echo ""
 echo "Deploying Atlas cluster:"
 echo "  Project : $ATLAS_PROJECT_ID"
 echo "  Cluster : $CLUSTER_NAME ($CLUSTER_CLOUD_PROVIDER / $CLUSTER_INSTANCE_SIZE)"
+echo "  Storage : $CLUSTER_STORAGE_CLASS ($([ "$CLUSTER_DISK_SIZE_GB" = "0" ] && echo "Atlas default size" || echo "${CLUSTER_DISK_SIZE_GB} GB"))"
 echo "  Regions : $CLUSTER_NUM_REGIONS"
 echo "  MongoDB : $MONGODB_VERSION"
 echo "  Search nodes: $CLUSTER_SEARCH_NODES"
