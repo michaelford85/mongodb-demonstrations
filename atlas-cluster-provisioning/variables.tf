@@ -133,3 +133,9 @@ variable "db_monitor_password" {
   type        = string
   sensitive   = true
 }
+
+variable "create_db_users" {
+  description = "Create the admin, app and monitoring database users. Atlas database users are scoped to the PROJECT and shared by every cluster in it, so set this false for the second and subsequent clusters in the same project - otherwise Atlas rejects the duplicate usernames."
+  type        = bool
+  default     = true
+}

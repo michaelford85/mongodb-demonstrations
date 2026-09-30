@@ -9,27 +9,33 @@ if ! command -v terraform &>/dev/null; then
   exit 1
 fi
 
-if [ ! -f .env ]; then
-  echo "ERROR: .env not found."
+ENV_FILE="${ENV_FILE:-.env}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: $ENV_FILE not found."
   exit 1
 fi
 
-if [ ! -f terraform.tfstate ]; then
-  echo "ERROR: terraform.tfstate not found. Nothing to destroy."
-  exit 1
-fi
+WORKSPACE="${CLUSTER_WORKSPACE:-default}"
 
 # ── Load .env ──────────────────────────────────────────────────────────────────
 
 set -a
 # shellcheck source=/dev/null
-source .env
+source "$ENV_FILE"
 set +a
+
+terraform init -upgrade >/dev/null
+if ! terraform workspace select "$WORKSPACE" 2>/dev/null; then
+  echo "ERROR: no Terraform workspace \"$WORKSPACE\". Nothing to destroy."
+  exit 1
+fi
 
 # ── Confirmation ───────────────────────────────────────────────────────────────
 
 echo ""
 echo "WARNING: This will permanently destroy:"
+echo "  Workspace : $WORKSPACE"
 echo "  Project : ${ATLAS_PROJECT_ID:-<unknown>}"
 echo "  Cluster : ${CLUSTER_NAME:-<unknown>}"
 echo ""
@@ -56,6 +62,7 @@ export TF_VAR_cluster_regions="$CLUSTER_REGIONS"
 export TF_VAR_cluster_search_nodes="$CLUSTER_SEARCH_NODES"
 export TF_VAR_cluster_compute_autoscale_enabled="${CLUSTER_COMPUTE_AUTOSCALE_ENABLED:-true}"
 export TF_VAR_cluster_compute_max_instance_size="${CLUSTER_COMPUTE_MAX_INSTANCE_SIZE:-}"
+export TF_VAR_create_db_users="${CREATE_DB_USERS:-true}"
 export TF_VAR_db_admin_user="$DB_ADMIN_USER"
 export TF_VAR_db_admin_password="$DB_ADMIN_PASSWORD"
 export TF_VAR_db_app_user="$DB_APP_USER"

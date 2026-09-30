@@ -1,6 +1,12 @@
+# Every env file except the template. A second cluster lives in its own file
+# (.env.cluster-b, .env.clusterb, ...) and those hold API keys and passwords.
 .env
+.env.*
+!.env.example
+
 .terraform/
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
+terraform.tfstate.d/
 *.tfvars
