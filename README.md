@@ -34,6 +34,12 @@ cp .env.example .env        # fill in connection details
 | **[`multi-tenant-vector-search/`](./multi-tenant-vector-search/)** | Multi-tenant architecture: one shared **flat** index (pre-filtered by `tenant_id`) for the many small tenants, plus a dedicated **HNSW** index on a per-tenant **View** for each large tenant, with a router and a flat-vs-HNSW benchmark. |
 | **[`product-catalog-studio/`](./product-catalog-studio/)** | GUI-first MongoDB 101/201 session: one collection holding three product shapes, a create/edit form that needs no migration, and keyword / semantic / hybrid retrieval over the same documents. |
 
+## Integrations & CMDB
+
+| Folder | Purpose |
+|---|---|
+| **[`atlas-servicenow-cmdb-demo/`](./atlas-servicenow-cmdb-demo/)** | Exploratory, read-only sync of Atlas inventory (org → projects → clusters → processes) into a ServiceNow CMDB via the documented IRE API — mock mode with synthetic fixtures needs no credentials, dry-run by default, live writes double-gated. |
+
 ## Conventions
 
 - **Python** demos use [PyMongo](https://pymongo.readthedocs.io/) and [`python-dotenv`](https://pypi.org/project/python-dotenv/); `.env` is the single source of truth for connection strings and credentials.
