@@ -18,7 +18,7 @@ sidebar_reset()
 seed_guard()
 
 page_header("④", "Transactions & consistency",
-            "Move money between two dedicated demo accounts and write the "
+            "Move value between two dedicated demo accounts and write the "
             "matching ledger entry — all or nothing.")
 
 support = transaction_support()
@@ -130,10 +130,12 @@ prose(
     "twenty fields and a nested array in one document either fully applies or "
     "does not — no transaction required. A well-modelled document turns many "
     "would-be transactions into single-document writes.\n"
-    "2. When an invariant genuinely spans documents — as here, where money "
+    "2. When an invariant genuinely spans documents — as here, where value "
     "leaving one account must arrive in another and the ledger must agree — "
     "MongoDB provides multi-document ACID transactions with the familiar "
-    "semantics: all writes commit, or none do.\n"
+    "semantics: all writes commit, or none do. The example is a balance "
+    "transfer because it is the shortest one to read; reserving stock, moving a "
+    "case between queues, or debiting a quota has the same shape.\n"
     "3. This deployment is a replica set, which is what transactions require. "
     "Transactions also work on sharded deployments.\n\n"
     "**Reversible by design.** The two accounts carry `purpose: "

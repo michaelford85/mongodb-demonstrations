@@ -4,8 +4,8 @@ import streamlit as st
 from pymongo.errors import PyMongoError
 
 from lib.queries import (CUSTOMER_PROJECTION, customer_filter, run_customer_filter,
-                         run_pipeline, spend_by_category_pipeline,
-                         spend_by_customer_pipeline)
+                         run_pipeline, value_by_category_pipeline,
+                         value_by_customer_pipeline)
 from lib.sample_data import CONTACT_CHANNELS, PLACES
 from lib.ui import (connection_guard, cue, mql, page_header, page_setup,
                     presenter_mode, prose, seed_guard, sidebar_reset,
@@ -65,9 +65,9 @@ with example_two:
                                      value=90)
 
     if grouping == "category":
-        pipeline, label = spend_by_category_pipeline(days), "category"
+        pipeline, label = value_by_category_pipeline(days), "category"
     else:
-        pipeline, label = spend_by_customer_pipeline(days), "customer_id"
+        pipeline, label = value_by_customer_pipeline(days), "customer_id"
 
     st.markdown("**The pipeline**")
     mql(pipeline)

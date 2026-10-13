@@ -52,8 +52,8 @@ def run_customer_filter(channel: str, state: str) -> list:
     return rows
 
 
-def spend_by_category_pipeline(days: int) -> list:
-    """$match + $group: spend per category over a recent window."""
+def value_by_category_pipeline(days: int) -> list:
+    """$match + $group: total value per category over a recent window."""
     since = BASE_DATE - timedelta(days=days)
     return [
         {"$match": {"direction": "debit", "posted_at": {"$gte": since}}},
@@ -65,8 +65,8 @@ def spend_by_category_pipeline(days: int) -> list:
     ]
 
 
-def spend_by_customer_pipeline(days: int, limit: int = 10) -> list:
-    """$match + $group + $sort + $limit: top spenders over a recent window."""
+def value_by_customer_pipeline(days: int, limit: int = 10) -> list:
+    """$match + $group + $sort + $limit: highest-value customers in a window."""
     since = BASE_DATE - timedelta(days=days)
     return [
         {"$match": {"direction": "debit", "posted_at": {"$gte": since}}},
@@ -92,21 +92,21 @@ def run_pipeline(pipeline: list, group_label: str) -> list:
 
 
 def indexed_accounts() -> list:
-    """Account numbers that carry seeded transaction history, for the picker."""
+    """Account numbers that carry seeded ledger history, for the picker."""
     return sorted(get_db()[TRANSACTIONS].distinct("account_number"))
 
 
-def statement_filter(account_number: str, days: int) -> dict:
+def ledger_filter(account_number: str, days: int) -> dict:
     """The query the compound index (account_number, posted_at) serves."""
     return {"account_number": account_number,
             "posted_at": {"$gte": BASE_DATE - timedelta(days=days)}}
 
 
-def run_statement(account_number: str, days: int, limit: int = 25) -> list:
+def run_ledger(account_number: str, days: int, limit: int = 25) -> list:
     cursor = (get_db()[TRANSACTIONS]
-              .find(statement_filter(account_number, days),
+              .find(ledger_filter(account_number, days),
                     {"_id": 0, "txn_id": 1, "posted_at": 1, "category": 1,
-                     "merchant": 1, "direction": 1, "amount": 1})
+                     "provider": 1, "direction": 1, "amount": 1})
               .sort("posted_at", -1).limit(limit)
               .max_time_ms(QUERY_TIMEOUT_MS))
     return list(cursor)
@@ -145,8 +145,8 @@ def _walk_plan(plan: dict, stages: list, indexes: list) -> None:
         _walk_plan(child, stages, indexes)
 
 
-def explain_statement(account_number: str, days: int, limit: int = 25,
-                      force_collection_scan: bool = False) -> dict:
+def explain_ledger(account_number: str, days: int, limit: int = 25,
+                   force_collection_scan: bool = False) -> dict:
     """Run `explain` in executionStats mode and return presenter-safe fields.
 
     With `force_collection_scan`, the query is hinted to $natural so the same
@@ -154,7 +154,7 @@ def explain_statement(account_number: str, days: int, limit: int = 25,
     """
     find_cmd = {
         "find": TRANSACTIONS,
-        "filter": statement_filter(account_number, days),
+        "filter": ledger_filter(account_number, days),
         "sort": {"posted_at": -1},
         "limit": limit,
         "maxTimeMS": QUERY_TIMEOUT_MS,

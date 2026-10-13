@@ -28,7 +28,7 @@ MAPPING = [
      "In this demo": "`segment`, `joined_on`"},
     {"Relational": "related data in a child table",
      "MongoDB": "nested subdocument / array",
-     "In this demo": "`address`, `contact`, `preferences`, `recent_alerts`"},
+     "In this demo": "`address`, `contact`, `preferences`, `recent_notices`"},
     {"Relational": "foreign key", "MongoDB": "identifier stored in a document",
      "In this demo": "`accounts.customer_id` → `customers.customer_id`"},
 ]
@@ -38,7 +38,7 @@ MAPPING = [
 RULE_SUMMARY = {
     CUSTOMERS: "`customer_id`, `name`, `segment`, `address`, `contact` required · "
                "`segment` and `preferences.contact_channel` restricted to a list · "
-               "`address.state` must be two capitals · `recent_alerts` capped at 3",
+               "`address.state` must be two capitals · `recent_notices` capped at 3",
     ACCOUNTS: "`account_number`, `customer_id`, `account_type`, `status`, "
               "`currency`, `balance` required · `balance` numeric and ≥ 0 · "
               "`account_type`, `status`, `currency` restricted to a list",
@@ -65,10 +65,10 @@ with right:
     embedded = {
         "contact": document.get("contact"),
         "preferences": document.get("preferences"),
-        "recent_alerts": document.get("recent_alerts"),
+        "recent_notices": document.get("recent_notices"),
     }
     mql(embedded, language="json")
-    st.caption("`recent_alerts` is deliberately bounded — at most three "
+    st.caption("`recent_notices` is deliberately bounded — at most three "
                "entries. Embedding an unbounded history would grow the "
                "document without limit.")
 
@@ -137,8 +137,9 @@ prose(
     "both wrong as blanket rules. The question is the same in either model: "
     "which pieces of data are used together, and how often does each piece "
     "change?\n\n"
-    "**Note on money.** Balances here are stored as doubles for readability. A "
-    "production ledger would use `Decimal128` or integer minor units.\n\n"
+    "**Note on numeric balances.** Balances here are stored as doubles for "
+    "readability. A production ledger of any kind — currency, quota, stock, or "
+    "points — would use `Decimal128` or integer minor units.\n\n"
     "**Schema validation, for the DBA.** MongoDB does not require a schema, but "
     "it will enforce one. A `$jsonSchema` validator is attached to the "
     "collection and applied by the server on every insert and update, which "

@@ -14,6 +14,10 @@ from pymongo.errors import PyMongoError
 
 from lib.mongo_client import DB_NAME, MissingUriError, get_db, is_empty
 from lib.seed import reset_transaction_demo, seed
+from lib.search_config import KNOWLEDGE, is_seeded as search_is_seeded
+from lib.search_index import (create_search_indexes, missing_search_indexes,
+                              search_index_status)
+from lib.search_seed import seed_knowledge
 
 TITLE = "MongoDB Foundations: Live Walkthrough"
 SUBTITLE = "Concepts are general MongoDB; Atlas is the demo environment."
@@ -122,6 +126,63 @@ def seed_guard() -> None:
         st.markdown("Seed from the sidebar, or from the command line:")
         st.code("python3 seed_data.py", language="bash")
         st.stop()
+
+
+def search_data_guard() -> None:
+    """Stop a Search/RAG page until the chunked corpus is seeded, and offer it."""
+    try:
+        seeded = search_is_seeded()
+    except (MissingUriError, PyMongoError) as exc:
+        st.error("**Cannot read the search corpus.** {}".format(exc))
+        st.stop()
+        return
+    if not seeded:
+        st.warning("**No search corpus yet.** These sections need the chunked "
+                   "documents in `{}`.".format(KNOWLEDGE))
+        st.markdown("Seed from the command line:")
+        st.code("python3 seed_search.py", language="bash")
+        if st.button("🌱 Seed search corpus now", type="primary"):
+            try:
+                result = seed_knowledge()
+                st.success("Seeded · {} chunks from {} documents"
+                           .format(result["chunks"], result["documents"]))
+                st.rerun()
+            except (MissingUriError, PyMongoError) as exc:
+                st.error("Seed failed: {}".format(exc))
+        st.stop()
+
+
+def search_index_guard() -> None:
+    """Stop a Search/RAG page until both Atlas Search indexes are queryable."""
+    try:
+        status = search_index_status()
+    except (MissingUriError, PyMongoError) as exc:
+        st.error("**Cannot read the search indexes.** {}".format(exc))
+        st.stop()
+        return
+
+    if missing_search_indexes():
+        st.warning("**Search indexes not created yet.** The full-text and "
+                   "vector (autoEmbed) indexes are required.")
+        st.markdown("Create from the command line:")
+        st.code("python3 scripts/create_search_indexes.py", language="bash")
+        if st.button("🔧 Create search indexes now", type="primary"):
+            try:
+                created = create_search_indexes()
+                st.success("Created: {}. Atlas builds indexes asynchronously — "
+                           "wait 1–2 minutes, then reload."
+                           .format(", ".join(created) or "none"))
+            except (MissingUriError, PyMongoError) as exc:
+                st.error("Index creation failed: {}".format(exc))
+        st.stop()
+
+    if not all(row["queryable"] for row in status):
+        st.info("**Search indexes are still building.** Atlas builds them "
+                "asynchronously; wait 1–2 minutes and reload this page.")
+        table(status)
+        st.stop()
+
+    st.sidebar.success("Search indexes ready")
 
 
 def sidebar_reset() -> None:

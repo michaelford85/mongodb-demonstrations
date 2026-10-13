@@ -4,8 +4,8 @@ import streamlit as st
 from pymongo.errors import PyMongoError
 
 from lib.mongo_client import TRANSACTIONS
-from lib.queries import (explain_statement, index_list, indexed_accounts,
-                         run_statement, statement_filter)
+from lib.queries import (explain_ledger, index_list, indexed_accounts,
+                         ledger_filter, run_ledger)
 from lib.ui import (connection_guard, cue, mql, page_header, page_setup,
                     presenter_mode, prose, seed_guard, sidebar_reset,
                     synthetic_note, table, takeaway)
@@ -27,8 +27,8 @@ except PyMongoError as exc:
     st.error("Could not list indexes: {}".format(exc))
 
 st.caption("`_id_` is created automatically. The two compound indexes exist "
-           "for this demo's access patterns: account statements, and "
-           "category aggregation.")
+           "for this demo's access patterns: recent entries for one account, "
+           "and category aggregation.")
 
 st.markdown("---")
 st.markdown("#### A query the compound index serves")
@@ -39,7 +39,7 @@ account = controls[0].selectbox("account_number", accounts)
 days = controls[1].select_slider("Window (days back)", [30, 60, 90, 180],
                                  value=90)
 
-mql({"find": TRANSACTIONS, "filter": statement_filter(account, days),
+mql({"find": TRANSACTIONS, "filter": ledger_filter(account, days),
      "sort": {"posted_at": -1}, "limit": 25})
 st.caption("Equality on `account_number`, then a range and a sort on "
            "`posted_at` — the exact shape of the index "
@@ -47,15 +47,15 @@ st.caption("Equality on `account_number`, then a range and a sort on "
 
 if st.button("▶︎ Run query", type="primary"):
     try:
-        st.session_state["stmt_rows"] = run_statement(account, days)
+        st.session_state["ledger_rows"] = run_ledger(account, days)
     except PyMongoError as exc:
         st.error("Query failed: {}".format(exc))
-        st.session_state["stmt_rows"] = None
+        st.session_state["ledger_rows"] = None
 
-if st.session_state.get("stmt_rows"):
-    table(st.session_state["stmt_rows"])
-elif st.session_state.get("stmt_rows") == []:
-    st.warning("No transactions for that account in that window.")
+if st.session_state.get("ledger_rows"):
+    table(st.session_state["ledger_rows"])
+elif st.session_state.get("ledger_rows") == []:
+    st.warning("No ledger entries for that account in that window.")
 
 st.markdown("---")
 st.markdown("#### `explain` in execution-stats mode")
@@ -66,9 +66,9 @@ st.caption("Runs the same query twice: once as the planner chooses it, and once 
 if st.button("🔍 Run explain (execution stats)"):
     try:
         st.session_state["explain"] = {
-            "indexed": explain_statement(account, days),
-            "scan": explain_statement(account, days,
-                                      force_collection_scan=True),
+            "indexed": explain_ledger(account, days),
+            "scan": explain_ledger(account, days,
+                                   force_collection_scan=True),
         }
     except PyMongoError as exc:
         st.error("`explain` failed: {}".format(exc))

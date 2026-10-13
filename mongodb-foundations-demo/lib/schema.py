@@ -17,7 +17,7 @@ from pymongo.errors import OperationFailure
 
 from lib.mongo_client import ACCOUNTS, CUSTOMERS, TRANSACTIONS
 from lib.sample_data import (ACCOUNT_TYPES, CATEGORIES, CONTACT_CHANNELS,
-                             LANGUAGES)
+                             LANGUAGES, SEGMENTS)
 
 CUSTOMER_VALIDATOR = {
     "$jsonSchema": {
@@ -33,7 +33,7 @@ CUSTOMER_VALIDATOR = {
                 "properties": {"first": {"bsonType": "string"},
                                "last": {"bsonType": "string"}},
             },
-            "segment": {"enum": ["consumer", "small_business"]},
+            "segment": {"enum": SEGMENTS},
             "address": {
                 "bsonType": "object",
                 "required": ["city", "state", "postal_code", "country"],
@@ -55,7 +55,7 @@ CUSTOMER_VALIDATOR = {
                     "language": {"enum": LANGUAGES},
                 },
             },
-            "recent_alerts": {"bsonType": "array", "maxItems": 3},
+            "recent_notices": {"bsonType": "array", "maxItems": 3},
         },
     }
 }
@@ -82,7 +82,7 @@ ACCOUNT_VALIDATOR = {
 TRANSACTION_VALIDATOR = {
     "$jsonSchema": {
         "bsonType": "object",
-        "title": "Posted transaction",
+        "title": "Posted ledger entry",
         "required": ["txn_id", "account_number", "category", "direction",
                      "amount", "posted_at"],
         "properties": {
@@ -157,10 +157,10 @@ def missing_validators(db: Database) -> list:
 # rejecting a write. Each breaks exactly one stated rule.
 REJECTED_EXAMPLES = {
     CUSTOMERS: {
-        "rule": "`segment` must be one of consumer, small_business",
+        "rule": "`segment` must be one of {}".format(", ".join(SEGMENTS)),
         "document": {"_id": "CUST-INVALID", "customer_id": "CUST-9999",
                      "name": {"first": "Test", "last": "Case"},
-                     "segment": "wholesale",
+                     "segment": "unclassified",
                      "address": {"city": "Nowhere", "state": "ZZ",
                                  "postal_code": "00000", "country": "US"},
                      "contact": {"email": "test@example.invalid"}},
@@ -168,13 +168,13 @@ REJECTED_EXAMPLES = {
     ACCOUNTS: {
         "rule": "`balance` must be a number and cannot be negative",
         "document": {"_id": "ACCT-INVALID", "account_number": "ACCT-99999",
-                     "customer_id": "CUST-1001", "account_type": "checking",
+                     "customer_id": "CUST-1001", "account_type": "operating",
                      "status": "open", "currency": "USD", "balance": -50.0},
     },
     TRANSACTIONS: {
         "rule": "`direction` must be debit or credit, and `posted_at` a date",
         "document": {"_id": "TXN-INVALID", "txn_id": "TXN-INVALID",
-                     "account_number": "ACCT-50001", "category": "groceries",
+                     "account_number": "ACCT-50001", "category": "storage",
                      "direction": "reversal", "amount": 10.0,
                      "posted_at": "2025-01-06"},
     },

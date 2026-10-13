@@ -1,9 +1,13 @@
 """The multi-document transaction demonstration.
 
 Business operation: move an amount between two dedicated synthetic accounts and
-write the corresponding transaction record. The invariant — money leaving one
-account must arrive in the other, and the ledger entry must match — spans three
+write the corresponding ledger entry. The invariant — value leaving one account
+must arrive in the other, and the ledger entry must match — spans three
 documents, which is exactly when a multi-document transaction earns its keep.
+
+The operation is deliberately generic. A balance transfer between two accounts
+is the shortest example of an invariant that spans documents; the same reasoning
+applies to reserving stock, moving a case between queues, or debiting quota.
 
 Isolated: only the two `purpose: transaction_demo` accounts are touched, and
 every write the demo makes carries `demo_transfer: true` so reset can undo it.
@@ -22,7 +26,7 @@ from lib.sample_data import (DEMO_TRANSFER_FLAG, TRANSFER_SOURCE,
 DEMO_ACCOUNTS = [TRANSFER_SOURCE, TRANSFER_TARGET]
 
 
-class InsufficientFunds(RuntimeError):
+class InsufficientBalance(RuntimeError):
     """Raised inside the transaction when the balance invariant would break."""
 
 
@@ -95,10 +99,10 @@ def _ledger_doc(src: str, dst: str, amount: float, now: datetime) -> dict:
         "counterparty_account": dst,
         "customer_id": "CUST-1001",
         "category": "transfer",
-        "merchant": "Internal Transfer",
+        "provider": "Internal Transfer",
         "direction": "debit",
         "amount": round(float(amount), 2),
-        "channel": "online",
+        "channel": "portal",
         "posted_at": now,
         DEMO_TRANSFER_FLAG: True,
     }
@@ -121,13 +125,13 @@ def run_transfer(amount: float, reverse: bool = False) -> dict:
                     {"account_number": src, "balance": {"$gte": amt}},
                     {"$inc": {"balance": -amt}}, session=session)
                 if debit.matched_count == 0:
-                    raise InsufficientFunds(
+                    raise InsufficientBalance(
                         "{} does not have {:.2f} available.".format(src, amt))
                 db[ACCOUNTS].update_one({"account_number": dst},
                                         {"$inc": {"balance": amt}},
                                         session=session)
                 db[TRANSACTIONS].insert_one(ledger, session=session)
-    except InsufficientFunds as exc:
+    except InsufficientBalance as exc:
         return {"committed": False, "reason": str(exc), "kind": "invariant",
                 "before": before, "after": balances(), "ledger": None}
     except OperationFailure as exc:

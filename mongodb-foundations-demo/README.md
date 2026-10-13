@@ -4,12 +4,18 @@ A local, presenter-driven Streamlit app for a 90-minute MongoDB foundations
 session with database architects who have deep Oracle/RDBMS experience.
 
 **This app is designed to be run against an Atlas-hosted cluster, but it teaches
-general MongoDB concepts.** Nothing in the six sections is Atlas-specific; Atlas
-is the demo environment, and the separate live-metrics walkthrough at the end is
-the only Atlas-specific part of the session.
+general MongoDB concepts.** Nothing in the seven sections is Atlas-specific;
+Atlas is the demo environment, and the separate live-metrics walkthrough at the
+end is the only Atlas-specific part of the session.
 
 It is an education session, not a product pitch. Every write is explicit,
 isolated to one synthetic namespace, and reversible.
+
+**Industry-agnostic by design.** The dataset is a set of customers, the accounts
+they hold, and a ledger of dated, categorised entries — a shape that recurs in
+every vertical, so no example depends on one. Every name is invented and every
+counterparty uses the reserved `Example …` convention; no real organisation is
+referenced anywhere in the demo.
 
 ---
 
@@ -21,11 +27,34 @@ isolated to one synthetic namespace, and reversible.
 | ② Querying & aggregation | A projected `find` on nested fields, and a `$match`/`$group` pipeline — each with the query shown, a result table, and the SQL intent |
 | ③ Indexes & query behaviour | The index list, a query shaped for a compound index, and `explain` in execution-stats mode |
 | ④ Transactions & consistency | An isolated, idempotent multi-document transfer with preview, confirmation, and reset |
-| ⑤ Replica sets, resilience & scale | A read-only deployment summary (`hello`, driver topology, `replSetGetStatus` when authorized) and a clearly labelled sharding callout |
-| ⑥ Monitoring handoff | The three signals to inspect in any monitoring tool, then the handoff to Atlas |
+| ⑤ Replica sets — an overview | Replica-set vocabulary mapped to relational terms, plus a read-only deployment summary (`hello`, driver topology, `replSetGetStatus` and `replSetGetConfig` when authorized) and a clearly labelled sharding callout |
+| ⑥ High availability & MongoDB | Live election state, the driver's durability settings, a failure-scenario table, and how write concern, read preference, and retryable writes decide what the application experiences |
+| ⑦ Monitoring handoff | The signals to inspect in any monitoring tool, then the handoff to Atlas |
 
-Deliberately out of scope: Atlas Search, Vector Search, geospatial,
-`$graphLookup`, time series, and anything sharding-related beyond the callout.
+### Optional Search & AI add-on (sections ⑧–⑨)
+
+Sections ①–⑦ are the core foundations session. Sections ⑧–⑨ are a self-contained
+add-on for the "MongoDB Search and how it fits into RAG" conversation. They use
+one extra collection, `knowledge_chunks`, in the same demo database, with their
+own seed and their own Atlas Search indexes.
+
+| Section | Content |
+|---|---|
+| ⑧ MongoDB Search | One query, four strategies over the same chunked corpus: full-text (BM25 `$search`), semantic (`$vectorSearch` on an `autoEmbed` index), hybrid (`$rankFusion`), and AI retrieval (hybrid + a Voyage AI reranker). Each result set ships with the exact aggregation as a copy-pasteable `mongosh` snippet |
+| ⑨ Search for RAG | MongoDB as the retrieval half of RAG: a question becomes retrieved grounding, then a grounded prompt, then an optional generated, citeable answer. Retrieval and the prompt always run; generation is optional |
+
+**Automated Embedding.** The vector index is declared as `autoEmbed`, so Atlas
+generates embeddings at index time and query time using a Voyage AI model. The
+app never computes an embedding — semantic and hybrid queries pass plain text.
+
+**Everything AI is optional and key-gated.** Full-text, semantic, and hybrid
+search need no extra keys. The AI reranker needs `VOYAGE_API_KEY`; the RAG
+answer step needs `GEN_API_KEY`. Without them, the sections still demonstrate
+the MongoDB-powered retrieval and show the exact prompt.
+
+Deliberately out of scope in the core sections ①–⑦: Atlas Search, Vector Search,
+geospatial, `$graphLookup`, time series, and anything sharding-related beyond
+the callout. Search and Vector Search are covered only in the ⑧–⑨ add-on.
 
 ---
 
@@ -111,7 +140,7 @@ server reject it with error code `121`.
 
 | Collection | Level / action | Rules |
 |---|---|---|
-| `customers` | `strict` / `error` | `customer_id`, `name`, `segment`, `address`, `contact` required; `segment` and `preferences.contact_channel` restricted to a list; `address.state` two capitals; `recent_alerts` capped at 3 |
+| `customers` | `strict` / `error` | `customer_id`, `name`, `segment`, `address`, `contact` required; `segment` and `preferences.contact_channel` restricted to a list; `address.state` two capitals; `recent_notices` capped at 3 |
 | `accounts` | `strict` / `error` | `account_number`, `customer_id`, `account_type`, `status`, `currency`, `balance` required; `balance` numeric and ≥ 0; `account_type`, `status`, `currency` restricted to a list |
 | `transactions` | `moderate` / `error` | `txn_id`, `account_number`, `category`, `direction`, `amount`, `posted_at` required; `amount` > 0; `direction` is `debit` or `credit`; `posted_at` must be a date |
 
@@ -120,6 +149,39 @@ screen: `strict` validates every write, `moderate` exempts documents that
 already violate the rules when they are updated. Fields the validator does not
 mention are still allowed, and rules are changed with `collMod` — a metadata
 change, not a table rewrite.
+
+---
+
+## Search & RAG add-on (sections ⑧–⑨)
+
+Optional and self-contained. It adds one collection, `knowledge_chunks`, to the
+same `mongodb_foundations_demo` database, seeded from invented, industry-neutral
+knowledge articles that the demo chunks at seed time — the same way a real RAG
+pipeline chunks its sources.
+
+```bash
+pip install -r requirements.txt          # pulls the optional voyageai/openai too
+python3 seed_search.py                    # chunk + seed knowledge_chunks
+python3 scripts/create_search_indexes.py  # create the two Atlas Search indexes
+python3 scripts/search_status.py          # wait until both indexes are READY
+```
+
+| Action | Where | Effect |
+|---|---|---|
+| Seed corpus | Section ⑧/⑨ → `Seed search corpus now`, or `python3 seed_search.py` | Drops and rebuilds only `knowledge_chunks` from the deterministic chunker |
+| Create indexes | Section ⑧/⑨ → `Create search indexes now`, or `python3 scripts/create_search_indexes.py` | Creates the BM25 and `autoEmbed` vector indexes (built asynchronously by Atlas) |
+| Check status | `python3 scripts/search_status.py` | Corpus count, per-index READY/building, and whether the optional keys are set |
+
+The two Atlas Search indexes on `knowledge_chunks`:
+
+| Index | Type | Serves |
+|---|---|---|
+| `knowledge_text_index` | Atlas Search (BM25) | Full-text search on the chunk `text` |
+| `knowledge_vector_index` | Vector Search (`autoEmbed`) | Semantic and hybrid search — Atlas embeds text with a Voyage AI model at index and query time |
+
+Index builds are asynchronous; allow a minute or two after creation before the
+sections become queryable. The sections guard on both prerequisites and offer an
+in-app button when either is missing.
 
 ---
 
@@ -151,12 +213,20 @@ off to reveal the full written explanation on any page.
    facts: single-document writes are atomic; multi-document transactions exist
    for invariants that span documents; this replica set supports them. Then
    `Reset demo data`.
-5. **⑤ Replica set** (90s) — replica-set name, connected member's role, members
-   as the driver sees them. Read the sharding callout verbatim and be explicit
-   that it does not describe this cluster.
-6. **⑥ Monitoring handoff** (60s) — the three signals, then the cue: *next,
-   switch to Atlas to show these same concepts as live metrics.* Leave the app
-   and drive Atlas directly.
+5. **⑤ Replica sets** (90s) — start with the vocabulary table: primary/standby,
+   oplog/redo, election/failover, majority/quorum. Then the replica-set name,
+   the connected member's role, members as the driver sees them, and the voting
+   configuration. Read the sharding callout verbatim and be explicit that it
+   does not describe this cluster.
+6. **⑥ High availability** (2 min) — show the election term and majority size,
+   then the driver's own durability settings. Walk the failure-scenario table
+   row by row, and land the point that the topology provides availability while
+   write concern, read preference, and retryable writes decide what the
+   application actually experiences. Close with what HA does *not* cover:
+   replication is not backup.
+7. **⑦ Monitoring handoff** (60s) — the signals, then the cue: *next, switch to
+   Atlas to show these same concepts as live metrics.* Leave the app and drive
+   Atlas directly.
 
 ---
 
@@ -179,10 +249,11 @@ page reports the connected user's roles under `Database permissions`.
 Seed it: **Demo Readiness** → `Seed demo data` → `Confirm`, or
 `python3 seed_data.py`.
 
-**`replSetGetStatus` not available**
+**`replSetGetStatus` or `replSetGetConfig` not available**
 Expected with a least-privilege user. Section ⑤ falls back to `hello` and driver
-metadata and says so on screen. `clusterMonitor` (or `atlasAdmin`) enables the
-member-status table.
+metadata and says so on screen, and section ⑥ hides only the election panel.
+`clusterMonitor` (or `atlasAdmin`) enables the member-status, member-configuration,
+and election tables.
 
 **Transaction errors**
 Multi-document transactions require a replica set or a sharded deployment —
@@ -207,9 +278,9 @@ in `lib/sample_data.py`, then re-seed.
 
 | File | Purpose |
 |---|---|
-| `app.py` | Landing page: title, subtitle, the six section cards, running order |
-| `pages/1_…` – `6_…` | The six independent sections |
-| `pages/7_Demo_Readiness.py` | The seven readiness checks, plus confirmed seeding |
+| `app.py` | Landing page: title, subtitle, the seven section cards, running order |
+| `pages/1_…` – `7_…` | The seven independent sections |
+| `pages/8_Demo_Readiness.py` | The seven readiness checks, plus confirmed seeding |
 | `seed_data.py` | Deterministic seed + validators + index creation from the command line |
 | `teardown.py` | Drops the demo database and frees the Streamlit port |
 | `scripts/status.py` | The readiness checks as CLI output |
@@ -219,10 +290,22 @@ in `lib/sample_data.py`, then re-seed.
 | `lib/schema.py` | The `$jsonSchema` validators and the rejected-write example |
 | `lib/queries.py` | Prebuilt query, aggregation, index, and `explain` helpers |
 | `lib/transactions.py` | The isolated multi-document transfer |
-| `lib/deployment.py` | Read-only `hello` / topology / `replSetGetStatus` summary |
+| `lib/deployment.py` | Read-only `hello` / topology / `replSetGetStatus` / `replSetGetConfig` / driver-durability introspection |
 | `lib/readiness.py` | The readiness checks |
-| `lib/ui.py` | Shared chrome: guards, presenter mode, tables, confirmed reset |
-| `.env.example` | `MONGODB_URI` only |
+| `lib/ui.py` | Shared chrome: guards (incl. the Search/RAG prerequisites), presenter mode, tables, confirmed reset |
+| `pages/9_MongoDB_Search.py` | ⑧ Full-text, semantic, hybrid, and AI-retrieval search over the chunked corpus |
+| `pages/10_Search_for_RAG.py` | ⑨ Retrieval-augmented generation: retrieve → ground → prompt → optional answer |
+| `seed_search.py` | Chunk and seed `knowledge_chunks` from the command line |
+| `scripts/create_search_indexes.py` | Create the BM25 and `autoEmbed` Atlas Search indexes |
+| `scripts/search_status.py` | Corpus / index / optional-key readiness for the Search & RAG add-on |
+| `lib/search_config.py` | Search & RAG namespace constants and the optional Voyage/LLM clients |
+| `lib/search_data.py` | The invented source articles and the deterministic chunker |
+| `lib/search_seed.py` | Guarded seed / drop for `knowledge_chunks` |
+| `lib/search_index.py` | Create / status / drop for the two Atlas Search indexes |
+| `lib/search.py` | The four search strategies, each returning results + the exact pipeline |
+| `lib/explain.py` | Renders a pipeline as a copy-pasteable `mongosh` snippet with stage notes |
+| `lib/rag.py` | Retrieve → grounded context → prompt → optional generation |
+| `.env.example` | `MONGODB_URI` (core), plus the optional Search/RAG keys and knobs |
 
 ---
 

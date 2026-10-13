@@ -1,7 +1,12 @@
 """Deterministic synthetic dataset for the MongoDB Foundations walkthrough.
 
-Every name, city, account number, and amount is invented for this demo. There is
-no real customer, no PII, and no production-like credential anywhere in here.
+Every name, city, account number, and amount is invented for this demo. No real
+organisation is named, there is no PII, and no production-like credential
+appears anywhere in here.
+
+The vocabulary is deliberately industry-neutral: customers hold accounts, and
+accounts carry a ledger of dated, categorised entries. That shape occurs in
+every vertical, so the modelling discussion never depends on one.
 
 The generators are seeded, so a reset always rebuilds byte-identical documents.
 That keeps the presenter's screen, talk track, and index behaviour reproducible.
@@ -15,14 +20,21 @@ from datetime import datetime, timedelta, timezone
 SEED = 20250101
 BASE_DATE = datetime(2025, 1, 6, tzinfo=timezone.utc)
 
-CONTACT_CHANNELS = ["email", "sms", "paper_mail"]
+CONTACT_CHANNELS = ["email", "sms", "postal"]
 LANGUAGES = ["en", "es"]
-ACCOUNT_TYPES = ["checking", "savings", "credit_card", "auto_loan"]
-CATEGORIES = ["groceries", "utilities", "travel", "dining", "fuel",
-              "subscription", "transfer"]
-ALERT_TYPES = ["address_change", "new_account", "score_change", "dispute_filed"]
-MERCHANTS = ["Northwind Grocers", "Cedar Utilities Co-op", "Halcyon Air",
-             "The Copper Skillet", "Larkspur Fuel", "Brightline Media",
+SEGMENTS = ["standard", "enterprise"]
+# Account types are generic ledger roles, not products of any industry.
+ACCOUNT_TYPES = ["operating", "reserve", "prepaid", "trial"]
+CATEGORIES = ["storage", "compute", "support", "licensing", "bandwidth",
+              "training", "transfer"]
+NOTICE_TYPES = ["profile_updated", "plan_changed", "usage_threshold",
+                "support_case"]
+ORDER_CHANNELS = ["portal", "api"]
+# Counterparty names use the reserved `Example` convention so no reader can
+# mistake them for a real organisation.
+PROVIDERS = ["Example Storage Ltd", "Example Compute Ltd",
+             "Example Support Ltd", "Example Licensing Ltd",
+             "Example Network Ltd", "Example Training Ltd",
              "Internal Transfer"]
 
 # Invented city / state pairs. Real state codes keep the geography filter
@@ -40,7 +52,7 @@ LAST_NAMES = ["Aldridge", "Beckworth", "Calloway", "Danforth", "Ellery",
 CUSTOMER_COUNT = 12
 TRANSACTION_COUNT = 240
 
-# The two dedicated accounts the transaction demo moves money between. They are
+# The two dedicated accounts the transaction demo moves value between. They are
 # never touched by the seeded transaction history, so the demo stays isolated.
 TRANSFER_SOURCE = "ACCT-90001"
 TRANSFER_TARGET = "ACCT-90002"
@@ -58,17 +70,17 @@ def customer_id(i: int) -> str:
 
 
 def build_customers() -> list:
-    """Twelve customer profiles: nested address/contact/preferences + alerts."""
+    """Twelve customer profiles: nested address/contact/preferences + notices."""
     rnd = random.Random(SEED)
     docs = []
     for i in range(1, CUSTOMER_COUNT + 1):
         city, state = PLACES[(i - 1) % len(PLACES)]
         cid = customer_id(i)
         first, last = FIRST_NAMES[i - 1], LAST_NAMES[i - 1]
-        alerts = [
+        notices = [
             {
-                "alert_id": "ALRT-{}-{}".format(cid[-4:], n + 1),
-                "type": ALERT_TYPES[(i + n) % len(ALERT_TYPES)],
+                "notice_id": "NOTE-{}-{}".format(cid[-4:], n + 1),
+                "type": NOTICE_TYPES[(i + n) % len(NOTICE_TYPES)],
                 "opened_at": BASE_DATE - timedelta(days=rnd.randint(5, 200)),
                 "channel": CONTACT_CHANNELS[(i + n) % len(CONTACT_CHANNELS)],
             }
@@ -78,7 +90,7 @@ def build_customers() -> list:
             "_id": cid,
             "customer_id": cid,
             "name": {"first": first, "last": last},
-            "segment": "small_business" if i % 4 == 0 else "consumer",
+            "segment": SEGMENTS[1] if i % 4 == 0 else SEGMENTS[0],
             "joined_on": BASE_DATE - timedelta(days=300 + i * 17),
             "address": {
                 "street": "{} {} Street".format(100 + i * 7, last),
@@ -96,10 +108,10 @@ def build_customers() -> list:
                 "contact_channel": CONTACT_CHANNELS[i % len(CONTACT_CHANNELS)],
                 "paperless": i % 3 != 0,
                 "language": LANGUAGES[i % len(LANGUAGES)],
-                "alerts_enabled": i % 5 != 0,
+                "notices_enabled": i % 5 != 0,
             },
             # Bounded, read-together history. Capped by design, not unbounded.
-            "recent_alerts": alerts,
+            "recent_notices": notices,
         })
     return docs
 
@@ -125,8 +137,8 @@ def build_accounts() -> list:
                 "balance": round(rnd.uniform(250, 9500), 2),
             })
     for acct, opening, label in (
-        (TRANSFER_SOURCE, TRANSFER_SOURCE_OPENING, "checking"),
-        (TRANSFER_TARGET, TRANSFER_TARGET_OPENING, "savings"),
+        (TRANSFER_SOURCE, TRANSFER_SOURCE_OPENING, "operating"),
+        (TRANSFER_TARGET, TRANSFER_TARGET_OPENING, "reserve"),
     ):
         docs.append({
             "_id": acct,
@@ -162,10 +174,10 @@ def build_transactions(account_docs: list) -> list:
             "account_number": acct["account_number"],
             "customer_id": acct["customer_id"],
             "category": CATEGORIES[cat_idx],
-            "merchant": MERCHANTS[cat_idx],
+            "provider": PROVIDERS[cat_idx],
             "direction": "credit" if n % 9 == 0 else "debit",
             "amount": round(rnd.uniform(4.50, 890.00), 2),
-            "channel": "card" if n % 2 else "ach",
+            "channel": ORDER_CHANNELS[n % len(ORDER_CHANNELS)],
             "posted_at": BASE_DATE - timedelta(days=n % 180,
                                                hours=(n * 7) % 24),
         })
