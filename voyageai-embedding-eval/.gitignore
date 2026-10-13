@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.pytest_cache/
+# Downloaded benchmark data and the local embedding cache
+data/
+.cache/

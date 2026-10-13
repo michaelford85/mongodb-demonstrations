@@ -31,6 +31,7 @@ cp .env.example .env        # fill in connection details
 | **[`full-text-search/`](./full-text-search/)** | Atlas Search (Lucene) vs. regex over `sample_mflix` — performance, relevance scoring, and fuzzy matching. |
 | **[`hybrid-search-lab/`](./hybrid-search-lab/)** | Keyword, semantic, hybrid (`$rankFusion`), and reranked search side by side, each showing the exact pipeline it ran. |
 | **[`voyageai-vector-embeddings/`](./voyageai-vector-embeddings/)** | Client-side Voyage AI embeddings with `$vectorSearch` and reranking over a product catalog. |
+| **[`voyageai-embedding-eval/`](./voyageai-embedding-eval/)** | Streamlit evaluation of Voyage AI vs. one competing embedding model on a public BEIR benchmark using Atlas Vector Search — NDCG, MRR, Recall, Precision, MAP, with an offline dry run. |
 | **[`multi-tenant-vector-search/`](./multi-tenant-vector-search/)** | Multi-tenant architecture: one shared **flat** index (pre-filtered by `tenant_id`) for the many small tenants, plus a dedicated **HNSW** index on a per-tenant **View** for each large tenant, with a router and a flat-vs-HNSW benchmark. |
 | **[`product-catalog-studio/`](./product-catalog-studio/)** | GUI-first MongoDB 101/201 session: one collection holding three product shapes, a create/edit form that needs no migration, and keyword / semantic / hybrid retrieval over the same documents. |
 
