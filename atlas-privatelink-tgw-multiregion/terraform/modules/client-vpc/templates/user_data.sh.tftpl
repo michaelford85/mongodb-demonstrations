@@ -1,0 +1,522 @@
+#!/usr/bin/env bash
+# Rendered by Terraform into the test VM's user data.
+#
+# Contains only AWS-generated interface endpoint hostnames, TCP port numbers and
+# the test scripts themselves. It must never contain an Atlas connection string,
+# an Atlas SRV URI, database credentials or AWS keys: user data is readable from
+# inside the instance and is stored in Terraform state.
+set -euo pipefail
+
+exec > >(tee -a /var/log/atlas-plink-bootstrap.log) 2>&1
+
+install -d -m 0755 /etc/atlas-plink /usr/local/share/atlas-plink
+
+# region_key<TAB>aws_region<TAB>label<TAB>dns_name<TAB>hub_cidr<TAB>cross_region
+cat >/etc/atlas-plink/targets.tsv <<'TARGETS'
+%{ for t in endpoint_targets ~}
+${t.region_key}	${t.aws_region}	${t.label}	${t.dns_name}	${t.hub_cidr}	${t.cross_region ? "cross-region" : "same-region"}
+%{ endfor ~}
+TARGETS
+
+cat >/etc/atlas-plink/ports <<'PORTS'
+%{ for p in test_ports ~}
+${p}
+%{ endfor ~}
+PORTS
+
+cat >/etc/atlas-plink/mongosh-source <<'SOURCE'
+${mongosh_s3_uri}
+SOURCE
+
+# ── TCP reachability test ──────────────────────────────────────────────────────
+
+cat >/usr/local/bin/atlas-plink-test <<'SCRIPT'
+#!/usr/bin/env bash
+# Proves this VM can reach every Atlas interface endpoint in the lab, including
+# the ones in the remote region reached over Transit Gateway peering.
+#
+# Two modes:
+#
+#   atlas-plink-test --srv <srv-hostname> [--srv <another-cluster>]
+#       Authoritative. Reads the SRV record the driver itself uses, so the
+#       host:port pairs are exactly the ones Atlas published for your cluster -
+#       no guessing. Get the hostname from the private-endpoint connection
+#       string, e.g. cluster0-pl-0.xxxxx.mongodb.net (no mongodb+srv:// prefix,
+#       no credentials).
+#
+#   atlas-plink-test [port ...]
+#       Heuristic. Scans the port range baked in at deploy time, plus any ports
+#       named on the command line. Atlas allocates a block of ports per private
+#       endpoint starting at 1024, but WHICH block depends on how many clusters
+#       and endpoints the project already has - a cluster can easily land on
+#       1045 or higher. A closed port here means nothing on its own.
+#
+# Uses bash built-ins (/dev/tcp) and getent only; --srv additionally needs dig.
+set -uo pipefail
+
+TARGETS=/etc/atlas-plink/targets.tsv
+PORTS_FILE=/etc/atlas-plink/ports
+CONNECT_TIMEOUT=$${CONNECT_TIMEOUT:-2}
+MAX_JOBS=$${MAX_JOBS:-32}
+
+srv_hosts=()
+extra_ports=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --srv)
+      [ -n "$${2:-}" ] || { echo "--srv needs a hostname"; exit 2; }
+      srv_hosts+=("$2")
+      shift 2
+      ;;
+    -h|--help)
+      sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      extra_ports+=("$1")
+      shift
+      ;;
+  esac
+done
+
+probe() { # host port -> "open" | "closed"
+  if timeout "$CONNECT_TIMEOUT" bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null; then
+    echo open
+  else
+    echo closed
+  fi
+}
+
+# Which hub does an address belong to? Lets --srv name the region each Atlas
+# node was reached through, which is the point of the whole lab.
+ip2int() {
+  local IFS=.
+  read -r a b c d <<<"$1"
+  echo $(((a << 24) + (b << 16) + (c << 8) + d))
+}
+
+hub_for_addr() {
+  local addr="$1" region_key aws_region label dns_name hub_cidr scope base bits mask
+  while IFS=$'\t' read -r region_key aws_region label dns_name hub_cidr scope; do
+    [ -z "$${hub_cidr:-}" ] && continue
+    base=$${hub_cidr%/*}
+    bits=$${hub_cidr#*/}
+    mask=$((0xFFFFFFFF ^ ((1 << (32 - bits)) - 1)))
+    if [ $(($(ip2int "$addr") & mask)) -eq $(($(ip2int "$base") & mask)) ]; then
+      echo "hub $region_key/$aws_region [$scope]"
+      return
+    fi
+  done <"$TARGETS"
+  echo "not in any hub CIDR"
+}
+
+# ── Authoritative mode: ask DNS what the ports actually are ───────────────────
+#
+# Repeat --srv once per cluster. Two clusters in the same Atlas project and
+# regions resolve to the SAME endpoint addresses on DIFFERENT ports - which is
+# the consolidation this lab exists to show.
+if [ "$${#srv_hosts[@]}" -gt 0 ]; then
+  if ! command -v dig >/dev/null 2>&1; then
+    echo "dig is required for --srv. Install it with: sudo dnf install -y bind-utils"
+    exit 1
+  fi
+
+  total_open=0
+  total_nodes=0
+  declare -A seen_addrs=()
+
+  for srv_host in "$${srv_hosts[@]}"; do
+    # Accept a bare hostname or a whole connection string: strip the scheme,
+    # any credentials, a trailing path or query, and any port.
+    host_only=$${srv_host#*://}
+    host_only=$${host_only#*@}
+    host_only=$${host_only%%/*}
+    host_only=$${host_only%%\?*}
+    host_only=$${host_only%%:*}
+
+    if [ -z "$host_only" ]; then
+      echo "Could not read a hostname out of: $srv_host"
+      exit 2
+    fi
+
+    printf '\n== %s ==\n\n' "$host_only"
+
+    mapfile -t records < <(dig +short SRV "_mongodb._tcp.$host_only" | awk '{print $3" "$4}')
+    if [ "$${#records[@]}" -eq 0 ]; then
+      echo "No SRV records for _mongodb._tcp.$host_only"
+      echo
+      echo "Expected the host part of the PRIVATE endpoint connection string, e.g."
+      echo "  <cluster>-pl-0.xxxxx.mongodb.net"
+      echo "A -pl-N in the name is the giveaway that it is the private one; the"
+      echo "standard connection string will not resolve to your endpoints."
+      exit 1
+    fi
+
+    for record in "$${records[@]}"; do
+      port=$${record%% *}
+      host=$${record#* }
+      host=$${host%.}
+      total_nodes=$((total_nodes + 1))
+      addr=$(getent ahostsv4 "$host" | awk 'NR==1{print $1}')
+      if [ -z "$addr" ]; then
+        printf '  %-52s %-15s %s\n' "$host:$port" "-" "DNS FAIL"
+        continue
+      fi
+      seen_addrs["$addr"]=1
+      state=$(probe "$addr" "$port")
+      printf '  %-52s %-15s %-7s %s\n' "$host:$port" "$addr" "$state" "$(hub_for_addr "$addr")"
+      [ "$state" = open ] && total_open=$((total_open + 1))
+    done
+  done
+
+  printf '\n== %d of %d Atlas nodes reachable ==\n' "$total_open" "$total_nodes"
+
+  if [ "$${#srv_hosts[@]}" -gt 1 ]; then
+    printf '== %d cluster(s) reached through %d endpoint address(es): %s ==\n' \
+      "$${#srv_hosts[@]}" "$${#seen_addrs[@]}" "$${!seen_addrs[*]}"
+    printf 'Same endpoints, different ports per cluster - one PrivateLink path\n'
+    printf 'per region serving every cluster in the Atlas project.\n'
+  fi
+  printf '\n'
+
+  [ "$total_open" -eq "$total_nodes" ] || exit 1
+  exit 0
+fi
+
+# ── Heuristic mode: scan the configured port range ────────────────────────────
+mapfile -t ports <"$PORTS_FILE"
+[ "$${#extra_ports[@]}" -gt 0 ] && ports+=("$${extra_ports[@]}")
+mapfile -t ports < <(printf '%s\n' "$${ports[@]}" | awk 'NF' | sort -n -u)
+
+printf '\n== Atlas PrivateLink reachability ==\n'
+printf 'Scanning %d ports per endpoint address. Atlas port blocks vary per\n' "$${#ports[@]}"
+printf 'project; if nothing is open, re-run with --srv <hostname> before\n'
+printf 'concluding anything is broken.\n'
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+hubs_with_open=0
+hubs_total=0
+
+while IFS=$'\t' read -r region_key aws_region label dns_name hub_cidr scope; do
+  [ -z "$${dns_name:-}" ] && continue
+  hubs_total=$((hubs_total + 1))
+
+  printf '\n-- hub %s (%s) endpoint %s [%s]\n' "$region_key" "$aws_region" "$label" "$scope"
+  printf '   %s\n' "$dns_name"
+
+  mapfile -t addrs < <(getent ahostsv4 "$dns_name" | awk '{print $1}' | sort -u)
+  if [ "$${#addrs[@]}" -eq 0 ]; then
+    printf '   DNS   : FAIL (no A record)\n'
+    continue
+  fi
+  printf '   DNS   : %s\n' "$${addrs[*]}"
+
+  hub_dir="$tmp/$region_key-$label"
+  mkdir -p "$hub_dir"
+  n=0
+
+  for addr in "$${addrs[@]}"; do
+    for port in "$${ports[@]}"; do
+      [ -z "$${port:-}" ] && continue
+      n=$((n + 1))
+      { echo "$(probe "$addr" "$port") $addr $port" >"$hub_dir/$n"; } &
+      while [ "$(jobs -rp | wc -l)" -ge "$MAX_JOBS" ]; do wait -n; done
+    done
+  done
+  wait
+
+  mapfile -t open_list < <(grep -h '^open ' "$hub_dir"/* 2>/dev/null | awk '{print $2":"$3}' | sort)
+  closed=$(cat "$hub_dir"/* 2>/dev/null | grep -c '^closed ')
+
+  if [ "$${#open_list[@]}" -gt 0 ]; then
+    printf '   OPEN  : %s\n' "$${open_list[*]}"
+    hubs_with_open=$((hubs_with_open + 1))
+  else
+    printf '   OPEN  : none\n'
+  fi
+  printf '   closed: %s of %s probes\n' "$${closed:-0}" "$n"
+done <"$TARGETS"
+
+printf '\n== %d of %d hubs reachable ==\n' "$hubs_with_open" "$hubs_total"
+if [ "$hubs_with_open" -lt "$hubs_total" ]; then
+  printf 'Before assuming a routing fault, re-run against the real ports:\n'
+  printf '  atlas-plink-test --srv <cluster>-pl-0.xxxxx.mongodb.net\n\n'
+  exit 1
+fi
+printf 'One open port per hub in both regions is what this lab has to show.\n\n'
+SCRIPT
+chmod 0755 /usr/local/bin/atlas-plink-test
+
+# ── Proof that Atlas is not reachable over the internet path ───────────────────
+
+cat >/usr/local/bin/atlas-plink-egress-check <<'SCRIPT'
+#!/usr/bin/env bash
+# Shows what this VM's egress actually allows.
+#
+# The security group permits the MongoDB port range only towards the hub VPC
+# CIDRs. Ports 80 and 443 to the internet exist so mongosh can be installed.
+# Nothing on 27017 may leave towards the public internet, which is what keeps
+# "Atlas over PrivateLink only" true while a NAT gateway exists.
+#
+#   atlas-plink-egress-check [public-atlas-hostname]
+#
+# Pass one of your cluster's real node hostnames - the atlas-xxxxx-shard-00-00
+# style name printed by atlas-plink-query - for the strongest evidence: that
+# host definitely listens on 27017 over the internet, so "blocked" can only be
+# this VM's egress rules.
+set -uo pipefail
+
+ATLAS_PUBLIC_HOST=$${1:-mongodb.net}
+
+probe() {
+  local label="$1" host="$2" port="$3" expect="$4"
+  local result="blocked"
+  if timeout 5 bash -c "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; then
+    result="open"
+  fi
+  local verdict="UNEXPECTED"
+  [ "$result" = "$expect" ] && verdict="as designed"
+  printf '  %-46.46s %-8s (%s)\n' "$label" "$result" "$verdict"
+  [ "$result" = "$expect" ]
+}
+
+status=0
+
+printf '\n== Egress posture ==\n\n'
+printf '  %-46s %-8s\n' 'probe' 'result'
+probe 'HTTPS to the internet (package install)' 'repo.mongodb.org' 443 open || status=1
+probe "MongoDB 27017 to $${ATLAS_PUBLIC_HOST%%.*}..." "$ATLAS_PUBLIC_HOST" 27017 blocked || status=1
+
+if [ "$ATLAS_PUBLIC_HOST" = "mongodb.net" ]; then
+  printf '\n  Note: mongodb.net may not listen on 27017 at all, so that result is\n'
+  printf '  weak evidence. Re-run with a real node hostname for a real test:\n'
+  printf '    atlas-plink-egress-check atlas-xxxxx-shard-00-00.yyyyy.mongodb.net\n'
+fi
+
+printf '\n  Default route:\n'
+ip route show default | sed 's/^/    /' || true
+
+printf '\n  Public IPv4 of this instance (expect none):\n'
+token=$(timeout 3 curl -sS -X PUT 'http://169.254.169.254/latest/api/token' \
+  -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null || true)
+body=$(mktemp)
+code=$(timeout 3 curl -s -o "$body" -w '%%{http_code}' \
+  -H "X-aws-ec2-metadata-token: $token" \
+  http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo 000)
+
+if [ "$code" = "200" ] && [ -s "$body" ]; then
+  printf '    %s  <-- UNEXPECTED: this VM should have no public address\n' "$(cat "$body")"
+  status=1
+else
+  printf '    none (instance metadata returned HTTP %s for public-ipv4)\n' "$code"
+fi
+rm -f "$body"
+
+printf '\n'
+exit $status
+SCRIPT
+chmod 0755 /usr/local/bin/atlas-plink-egress-check
+
+# ── Per-region query test ──────────────────────────────────────────────────────
+
+cat >/usr/local/share/atlas-plink/region-query-test.js <<'JSFILE'
+${region_query_js}
+JSFILE
+chmod 0644 /usr/local/share/atlas-plink/region-query-test.js
+
+cat >/usr/local/bin/atlas-plink-query <<'SCRIPT'
+#!/usr/bin/env bash
+# Runs an explicit read against the secondary in the primary's region and
+# against a secondary in the other region, over PrivateLink.
+#
+# Credential handling: the SRV URI is read with echo off, any credentials
+# embedded in it are stripped before mongosh ever sees it, and the password is
+# prompted for by mongosh itself. Nothing is written to disk, to shell history,
+# to the process arguments or to Terraform state.
+set -uo pipefail
+
+if ! command -v mongosh >/dev/null 2>&1; then
+  cat <<'MSG'
+mongosh is not installed yet.
+
+  sudo atlas-plink-install-mongosh
+
+If that fails, the VM has no internet egress right now. Either redeploy with
+CLIENT_INTERNET_EGRESS=true, or stage a mongosh tarball in your own bucket and
+set MONGOSH_S3_URI.
+MSG
+  exit 1
+fi
+
+export ATLAS_PLINK_DB="$${ATLAS_PLINK_DB:-atlas_plink_demo}"
+export ATLAS_PLINK_COLL="$${ATLAS_PLINK_COLL:-probe}"
+
+printf 'Paste the Atlas PRIVATE ENDPOINT connection string.\n'
+printf 'Atlas UI -> Connect -> Private Endpoint.\n'
+printf 'Input is hidden in case the string still carries a password; the\n'
+printf 'sanitised URI is echoed back so you can check what was captured.\n\n'
+
+ATLAS_URI_SAFE=""
+for attempt in 1 2 3; do
+  read -r -s -p 'SRV URI: ' ATLAS_URI
+  printf '\n'
+
+  if [ -z "$ATLAS_URI" ]; then
+    printf 'Nothing entered.\n\n'
+    continue
+  fi
+
+  # Drop any user:password@ that came with the paste - mongosh will prompt.
+  candidate=$(printf '%s' "$ATLAS_URI" | sed -E 's#^(mongodb(\+srv)?://)[^/@]*@#\1#')
+  unset ATLAS_URI
+
+  case "$candidate" in
+    mongodb://*|mongodb+srv://*)
+      ;;
+    *)
+      printf 'That is not a MongoDB connection string. It must begin with\n'
+      printf 'mongodb+srv:// or mongodb:// - you entered:\n  %s\n\n' "$candidate"
+      continue
+      ;;
+  esac
+
+  case "$candidate" in
+    *' '*)
+      printf 'That contains a space, so it is not a single URI:\n  %s\n\n' "$candidate"
+      continue
+      ;;
+  esac
+
+  case "$candidate" in
+    *.mongodb.net*) ;;
+    *) printf 'WARNING: that host does not look like Atlas.\n' ;;
+  esac
+
+  case "$candidate" in
+    *-pl-*) ;;
+    *)
+      printf 'WARNING: no -pl-N in the hostname, so this looks like the STANDARD\n'
+      printf '         connection string rather than the private-endpoint one.\n'
+      printf '         It will not travel over PrivateLink.\n'
+      ;;
+  esac
+
+  ATLAS_URI_SAFE="$candidate"
+  printf 'Using: %s\n' "$ATLAS_URI_SAFE"
+  break
+done
+
+if [ -z "$ATLAS_URI_SAFE" ]; then
+  echo 'No usable connection string after 3 attempts.'
+  exit 1
+fi
+
+read -r -p 'Database username: ' DB_USER
+[ -n "$DB_USER" ] || { echo 'No username given.'; exit 1; }
+
+printf '\nmongosh will now prompt for the password.\n\n'
+
+HISTFILE=/dev/null mongosh "$ATLAS_URI_SAFE" \
+  --username "$DB_USER" \
+  --authenticationDatabase admin \
+  --quiet \
+  --file /usr/local/share/atlas-plink/region-query-test.js
+status=$?
+
+unset ATLAS_URI_SAFE DB_USER
+exit $status
+SCRIPT
+chmod 0755 /usr/local/bin/atlas-plink-query
+
+# ── mongosh installer, re-runnable ─────────────────────────────────────────────
+
+cat >/usr/local/bin/atlas-plink-install-mongosh <<'SCRIPT'
+#!/usr/bin/env bash
+# Installs mongosh. Safe to re-run: used at boot, and by hand after turning the
+# NAT egress path back on.
+#
+# Tries the staged S3 tarball first when one is configured, because that path
+# works with no internet egress at all, then falls back to the MongoDB yum
+# repository.
+set -uo pipefail
+
+if command -v mongosh >/dev/null 2>&1; then
+  echo "mongosh already installed: $(mongosh --version)"
+  exit 0
+fi
+
+source_uri=$(tr -d '[:space:]' </etc/atlas-plink/mongosh-source 2>/dev/null || true)
+
+if [ -n "$source_uri" ]; then
+  echo "Trying staged tarball $source_uri over the S3 gateway endpoint..."
+  if aws s3 cp "$source_uri" /tmp/mongosh.tgz --no-progress; then
+    tar -xzf /tmp/mongosh.tgz -C /tmp
+    find /tmp -maxdepth 3 -type f -name mongosh -perm -u+x -exec install -m 0755 {} /usr/local/bin/mongosh \; || true
+    find /tmp -maxdepth 4 -type f -name 'libmongocrypt*' -exec install -m 0644 {} /usr/local/lib/ \; || true
+    ldconfig || true
+    rm -rf /tmp/mongosh.tgz
+    if command -v mongosh >/dev/null 2>&1; then
+      echo "Installed from S3: $(mongosh --version)"
+      exit 0
+    fi
+  fi
+  echo "Staged tarball did not yield a usable mongosh; falling back to the repository."
+fi
+
+cat >/etc/yum.repos.d/mongodb-org-8.0.repo <<'REPO'
+[mongodb-org-8.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/amazon/2023/mongodb-org/8.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-8.0.asc
+REPO
+
+if dnf install -y mongodb-mongosh; then
+  echo "Installed from repo.mongodb.org: $(mongosh --version)"
+  exit 0
+fi
+
+cat <<'MSG'
+Could not install mongosh.
+
+This VM reaches the internet through a NAT gateway that only exists when
+CLIENT_INTERNET_EGRESS=true. If it is off, either turn it back on and re-run
+this script, or stage a mongosh tarball in a bucket you control and set
+MONGOSH_S3_URI.
+
+The TCP-level proof, atlas-plink-test, needs none of this.
+MSG
+exit 1
+SCRIPT
+chmod 0755 /usr/local/bin/atlas-plink-install-mongosh
+
+# Best effort at boot. Failures here are not fatal: the TCP test still works
+# and the installer can be re-run by hand.
+dnf install -y bind-utils || true   # dig, for atlas-plink-test --srv
+/usr/local/bin/atlas-plink-install-mongosh || true
+
+# ── Login banner ───────────────────────────────────────────────────────────────
+
+cat >/etc/motd <<'MOTD'
+
+Atlas PrivateLink + Transit Gateway multi-region lab - test client
+
+  atlas-plink-test             TCP reachability to every Atlas interface
+                               endpoint, local and remote region, no packages
+  atlas-plink-query            explicit reads from the secondary in the
+                               primary's region AND from a secondary in the
+                               other region (prompts for the URI, stores
+                               nothing)
+  atlas-plink-egress-check     shows that MongoDB ports cannot leave towards
+                               the internet, only towards the hub VPCs
+  atlas-plink-install-mongosh  (re)install mongosh
+
+  /etc/atlas-plink/targets.tsv        the endpoints under test
+  /var/log/atlas-plink-bootstrap.log  what happened at boot
+
+No public IP, no SSH, no inbound rules. Atlas is reachable over PrivateLink only.
+
+MOTD

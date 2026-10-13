@@ -1,0 +1,354 @@
+{
+  "organization": {
+    "id": "5f0f1a2b3c4d5e6f7a8b9c0d",
+    "name": "Example Atlas Organization (demo fixtures)",
+    "isDeleted": false,
+    "links": [
+      {
+        "rel": "self",
+        "href": "https://cloud.mongodb.com/api/atlas/v2/orgs/5f0f1a2b3c4d5e6f7a8b9c0d"
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "orgId": "5f0f1a2b3c4d5e6f7a8b9c0d",
+      "name": "inventory-demo-prod",
+      "created": "2025-11-03T09:15:22Z",
+      "clusterCount": 2,
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://cloud.mongodb.com/api/atlas/v2/groups/66e1f2a3b4c5d6e7f8a9b0c1"
+        }
+      ]
+    },
+    {
+      "id": "77f2e3b4c5d6e7f8a9b0c1d2",
+      "orgId": "5f0f1a2b3c4d5e6f7a8b9c0d",
+      "name": "inventory-demo-staging",
+      "created": "2025-12-01T14:02:10Z",
+      "clusterCount": 1,
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://cloud.mongodb.com/api/atlas/v2/groups/77f2e3b4c5d6e7f8a9b0c1d2"
+        }
+      ]
+    },
+    {
+      "id": "88a3d4c5b6e7f8a9b0c1d2e3",
+      "orgId": "5f0f1a2b3c4d5e6f7a8b9c0d",
+      "name": "inventory-demo-sandbox",
+      "created": "2026-01-20T11:44:55Z",
+      "clusterCount": 1,
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://cloud.mongodb.com/api/atlas/v2/groups/88a3d4c5b6e7f8a9b0c1d2e3"
+        }
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "id": "9ab4c5d6e7f8a9b0c1d2e3f4",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "name": "demo-orders-rs",
+      "clusterType": "REPLICASET",
+      "mongoDBMajorVersion": "8.0",
+      "mongoDBVersion": "8.0.4",
+      "stateName": "IDLE",
+      "createDate": "2025-11-03T10:00:00Z",
+      "paused": false,
+      "backupEnabled": true,
+      "pitEnabled": true,
+      "terminationProtectionEnabled": true,
+      "connectionStrings": {
+        "standard": "mongodb://demo-orders-rs-shard-00-00.8x1y2z.dummy.mongodb.net:27017,demo-orders-rs-shard-00-01.8x1y2z.dummy.mongodb.net:27017,demo-orders-rs-shard-00-02.8x1y2z.dummy.mongodb.net:27017",
+        "standardSrv": "mongodb+srv://demo-orders-rs.8x1y2z.dummy.mongodb.net"
+      },
+      "replicationSpecs": [
+        {
+          "id": "a1b2c3d4e5f6a7b8c9d0e1f2a3",
+          "zoneId": "5f0f1a2b3c4d5e6f7a8b9c0a",
+          "regionConfigs": [
+            {
+              "providerName": "TENANT",
+              "regionName": "US_EAST_1",
+              "priority": 7,
+              "electableSpecs": {
+                "instanceSize": "M10",
+                "nodeCount": 3
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abc5d6e7f8a9b0c1d2e3f4a5",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "name": "demo-analytics-sharded",
+      "clusterType": "SHARDED",
+      "mongoDBMajorVersion": "8.0",
+      "mongoDBVersion": "8.0.4",
+      "stateName": "IDLE",
+      "createDate": "2025-11-10T16:30:00Z",
+      "paused": false,
+      "backupEnabled": false,
+      "pitEnabled": false,
+      "terminationProtectionEnabled": false,
+      "connectionStrings": {
+        "standard": "mongodb://demo-analytics-sharded-shard-00-00.7w8x9y.dummy.mongodb.net:27017,demo-analytics-sharded-shard-00-01.7w8x9y.dummy.mongodb.net:27017,demo-analytics-sharded-shard-00-02.7w8x9y.dummy.mongodb.net:27017,demo-analytics-sharded-config-00-00.7w8x9y.dummy.mongodb.net:27017,demo-analytics-sharded-config-00-01.7w8x9y.dummy.mongodb.net:27017,demo-analytics-sharded-config-00-02.7w8x9y.dummy.mongodb.net:27017",
+        "standardSrv": "mongodb+srv://demo-analytics-sharded.7w8x9y.dummy.mongodb.net"
+      },
+      "replicationSpecs": [
+        {
+          "id": "b2c3d4e5f6a7b8c9d0e1f2a3b4",
+          "zoneId": "5f0f1a2b3c4d5e6f7a8b9c0b",
+          "regionConfigs": [
+            {
+              "providerName": "AWS",
+              "regionName": "EU_CENTRAL_1",
+              "priority": 7,
+              "electableSpecs": {
+                "instanceSize": "M30",
+                "nodeCount": 3
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bcd6e7f8a9b0c1d2e3f4a5b6",
+      "groupId": "77f2e3b4c5d6e7f8a9b0c1d2",
+      "name": "demo-staging-rs",
+      "clusterType": "REPLICASET",
+      "mongoDBMajorVersion": "7.0",
+      "mongoDBVersion": "7.0.14",
+      "stateName": "IDLE",
+      "createDate": "2025-12-01T15:00:00Z",
+      "paused": false,
+      "backupEnabled": false,
+      "pitEnabled": false,
+      "terminationProtectionEnabled": false,
+      "connectionStrings": {
+        "standard": "mongodb://demo-staging-rs-shard-00-00.4q5r6s.dummy.mongodb.net:27017,demo-staging-rs-shard-00-01.4q5r6s.dummy.mongodb.net:27017,demo-staging-rs-shard-00-02.4q5r6s.dummy.mongodb.net:27017",
+        "standardSrv": "mongodb+srv://demo-staging-rs.4q5r6s.dummy.mongodb.net"
+      },
+      "replicationSpecs": [
+        {
+          "id": "c3d4e5f6a7b8c9d0e1f2a3b4c5",
+          "zoneId": "5f0f1a2b3c4d5e6f7a8b9c0c",
+          "regionConfigs": [
+            {
+              "providerName": "GCP",
+              "regionName": "WESTERN_EUROPE",
+              "priority": 7,
+              "electableSpecs": {
+                "instanceSize": "M20",
+                "nodeCount": 3
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cde7f8a9b0c1d2e3f4a5b6c7",
+      "groupId": "88a3d4c5b6e7f8a9b0c1d2e3",
+      "name": "demo-sandbox-rs",
+      "clusterType": "REPLICASET",
+      "mongoDBMajorVersion": "8.0",
+      "mongoDBVersion": "8.0.4",
+      "stateName": "IDLE",
+      "createDate": "2026-01-20T12:00:00Z",
+      "paused": true,
+      "backupEnabled": false,
+      "pitEnabled": false,
+      "terminationProtectionEnabled": false,
+      "connectionStrings": {
+        "standard": "mongodb://demo-sandbox-rs-shard-00-00.1j2k3l.dummy.mongodb.net:27017,demo-sandbox-rs-shard-00-01.1j2k3l.dummy.mongodb.net:27017,demo-sandbox-rs-shard-00-02.1j2k3l.dummy.mongodb.net:27017",
+        "standardSrv": "mongodb+srv://demo-sandbox-rs.1j2k3l.dummy.mongodb.net"
+      },
+      "replicationSpecs": [
+        {
+          "id": "d4e5f6a7b8c9d0e1f2a3b4c5d6",
+          "zoneId": "5f0f1a2b3c4d5e6f7a8b9c0d",
+          "regionConfigs": [
+            {
+              "providerName": "AZURE",
+              "regionName": "EUROPE_NORTH",
+              "priority": 7,
+              "electableSpecs": {
+                "instanceSize": "M20",
+                "nodeCount": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "processes": [
+    {
+      "id": "demo-orders-rs-shard-00-00.8x1y2z.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-orders-rs-shard-00-00.8x1y2z.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-orders-rs-shard-00-00.8x1y2z.dummy.mongodb.net:27017",
+      "typeName": "REPLICA_PRIMARY",
+      "replicaSetName": "demo-orders-rs",
+      "shardName": "",
+      "version": "8.0.4",
+      "created": "2025-11-03T10:05:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-orders-rs-shard-00-01.8x1y2z.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-orders-rs-shard-00-01.8x1y2z.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-orders-rs-shard-00-01.8x1y2z.dummy.mongodb.net:27017",
+      "typeName": "REPLICA_SECONDARY",
+      "replicaSetName": "demo-orders-rs",
+      "shardName": "",
+      "version": "8.0.4",
+      "created": "2025-11-03T10:05:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-orders-rs-shard-00-02.8x1y2z.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-orders-rs-shard-00-02.8x1y2z.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-orders-rs-shard-00-02.8x1y2z.dummy.mongodb.net:27017",
+      "typeName": "REPLICA_SECONDARY",
+      "replicaSetName": "demo-orders-rs",
+      "shardName": "",
+      "version": "8.0.4",
+      "created": "2025-11-03T10:05:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-analytics-sharded-shard-00-00.7w8x9y.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-analytics-sharded-shard-00-00.7w8x9y.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-analytics-sharded-shard-00-00.7w8x9y.dummy.mongodb.net:27017",
+      "typeName": "SHARD_PRIMARY",
+      "replicaSetName": "demo-analytics-sharded-shard-0",
+      "shardName": "shard-0",
+      "version": "8.0.4",
+      "created": "2025-11-10T16:35:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-analytics-sharded-shard-00-01.7w8x9y.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-analytics-sharded-shard-00-01.7w8x9y.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-analytics-sharded-shard-00-01.7w8x9y.dummy.mongodb.net:27017",
+      "typeName": "SHARD_SECONDARY",
+      "replicaSetName": "demo-analytics-sharded-shard-0",
+      "shardName": "shard-0",
+      "version": "8.0.4",
+      "created": "2025-11-10T16:35:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-analytics-sharded-config-00-00.7w8x9y.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-analytics-sharded-config-00-00.7w8x9y.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-analytics-sharded-config-00-00.7w8x9y.dummy.mongodb.net:27017",
+      "typeName": "SHARD_CONFIG",
+      "replicaSetName": "demo-analytics-sharded-config",
+      "shardName": "",
+      "version": "8.0.4",
+      "created": "2025-11-10T16:35:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-analytics-sharded-mongos-0.7w8x9y.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-analytics-sharded-mongos-0.7w8x9y.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-analytics-sharded-mongos-0.7w8x9y.dummy.mongodb.net:27017",
+      "typeName": "SHARD_MONGOS",
+      "replicaSetName": "",
+      "shardName": "",
+      "version": "8.0.4",
+      "created": "2025-11-10T16:35:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-analytics-sharded-mongos-1.7w8x9y.dummy.mongodb.net:27017",
+      "groupId": "66e1f2a3b4c5d6e7f8a9b0c1",
+      "hostname": "demo-analytics-sharded-mongos-1.7w8x9y.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-analytics-sharded-mongos-1.7w8x9y.dummy.mongodb.net:27017",
+      "typeName": "SHARD_MONGOS",
+      "replicaSetName": "",
+      "shardName": "",
+      "version": "8.0.4",
+      "created": "2025-11-10T16:35:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-staging-rs-shard-00-00.4q5r6s.dummy.mongodb.net:27017",
+      "groupId": "77f2e3b4c5d6e7f8a9b0c1d2",
+      "hostname": "demo-staging-rs-shard-00-00.4q5r6s.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-staging-rs-shard-00-00.4q5r6s.dummy.mongodb.net:27017",
+      "typeName": "REPLICA_PRIMARY",
+      "replicaSetName": "demo-staging-rs",
+      "shardName": "",
+      "version": "7.0.14",
+      "created": "2025-12-01T15:05:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-staging-rs-shard-00-01.4q5r6s.dummy.mongodb.net:27017",
+      "groupId": "77f2e3b4c5d6e7f8a9b0c1d2",
+      "hostname": "demo-staging-rs-shard-00-00.4q5r6s.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-staging-rs-shard-00-01.4q5r6s.dummy.mongodb.net:27017",
+      "typeName": "REPLICA_SECONDARY",
+      "replicaSetName": "demo-staging-rs",
+      "shardName": "",
+      "version": "7.0.14",
+      "created": "2025-12-01T15:05:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "demo-staging-rs-shard-00-02.4q5r6s.dummy.mongodb.net:27017",
+      "groupId": "77f2e3b4c5d6e7f8a9b0c1d2",
+      "hostname": "demo-staging-rs-shard-00-02.4q5r6s.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "demo-staging-rs-shard-00-02.4q5r6s.dummy.mongodb.net:27017",
+      "typeName": "REPLICA_SECONDARY",
+      "replicaSetName": "demo-staging-rs",
+      "shardName": "",
+      "version": "7.0.14",
+      "created": "2025-12-01T15:05:00Z",
+      "lastPing": "2026-10-08T12:00:00Z"
+    },
+    {
+      "id": "orphan-process.9z0y1x.dummy.mongodb.net:27017",
+      "groupId": "88a3d4c5b6e7f8a9b0c1d2e3",
+      "hostname": "orphan-process.9z0y1x.dummy.mongodb.net",
+      "port": 27017,
+      "userAlias": "orphan-process.9z0y1x.dummy.mongodb.net:27017",
+      "typeName": "NO_DATA",
+      "replicaSetName": "",
+      "shardName": "",
+      "version": "",
+      "created": "2026-02-02T08:10:00Z",
+      "lastPing": "2026-02-02T08:10:00Z"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "discovery_source": "atlas",
+  "source_feed": "atlas-cmdb-sync-demo",
+  "classes": {
+    "organization": {
+      "class": "cmdb_ci_service",
+      "parent": null,
+      "relationship_type": null
+    },
+    "project": {
+      "class": "cmdb_ci_service",
+      "parent": "organization",
+      "relationship_type": "Contains::Contained by"
+    },
+    "cluster": {
+      "class": "cmdb_ci_service",
+      "parent": "project",
+      "relationship_type": "Contains::Contained by"
+    },
+    "process": {
+      "class": "cmdb_ci_service",
+      "parent": "cluster",
+      "fallback_parent": "project",
+      "relationship_type": "Contains::Contained by"
+    }
+  },
+  "attributes": {
+    "organization": {
+      "name": "name"
+    },
+    "project": {
+      "name": "name",
+      "short_description": "description"
+    },
+    "cluster": {
+      "name": "name",
+      "short_description": "description"
+    },
+    "process": {
+      "name": "name"
+    }
+  }
+}

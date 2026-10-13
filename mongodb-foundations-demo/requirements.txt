@@ -1,0 +1,10 @@
+streamlit>=1.35.0
+pymongo>=4.7.0
+python-dotenv>=1.0.0
+pandas>=2.0.0
+
+# Optional — only the Search & RAG sections (⑧, ⑨) use these. Full-text,
+# semantic, and hybrid search need neither; they are for the optional AI
+# reranker (voyageai) and the optional RAG answer step (openai).
+voyageai>=0.3.0
+openai>=1.30.0

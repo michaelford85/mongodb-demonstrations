@@ -1,0 +1,14 @@
+.env
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.d/
+.terraform.tfstate.lock.info
+*.tfvars
+crash.log
+
+# Generated on demand by ./teardown.sh to lift prevent_destroy, then deleted.
+# Never commit these: they disable the guard rails that protect the lab.
+*_override.tf
+override.tf

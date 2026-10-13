@@ -9,7 +9,7 @@ This folder contains a **Terraform-based script** for spinning up and tearing do
 | Resource | Description |
 |---|---|
 | `mongodbatlas_advanced_cluster` | A dedicated replica set cluster (M10+) inside an existing Atlas project, with Compute Auto-Scale enabled by default |
-| `mongodbatlas_database_user` | Three users: an `atlasAdmin` admin user, a `readWriteAnyDatabase` application user, and a `clusterMonitor` monitoring user |
+| `mongodbatlas_database_user` | Three users: an `atlasAdmin` admin user, a `readWriteAnyDatabase` application user, and a `clusterMonitor` monitoring user. Atlas scopes database users to the **project**, so they are shared by every cluster in it — set `CREATE_DB_USERS=false` for the second and later clusters in the same project |
 | `mongodbatlas_search_deployment` | Dedicated Atlas Search nodes *(only when `CLUSTER_SEARCH_NODES > 0`)* |
 
 Compute Auto-Scale is enabled with `min == max == CLUSTER_INSTANCE_SIZE` by default — the feature is on (which Atlas Automated Embedding / `autoEmbed` vector search indexes require) but the cluster does not actually scale unless you raise `CLUSTER_COMPUTE_MAX_INSTANCE_SIZE`. It is skipped entirely on local NVMe clusters, which Atlas does not auto-scale.
@@ -56,6 +56,7 @@ CLUSTER_CLOUD_PROVIDER=AWS    # AWS | GCP | AZURE
 CLUSTER_INSTANCE_SIZE=M30     # or an explicit NVMe tier, e.g. M40_NVME
 CLUSTER_STORAGE_CLASS=SSD     # SSD (network-attached) | NVME (local NVMe SSD)
 CLUSTER_DISK_SIZE_GB=0        # 0 = Atlas default for the tier; SSD only
+CLUSTER_BACKUP_ENABLED=false  # Atlas Cloud Backup; forced on for NVMe
 MONGODB_VERSION=8.0
 
 # Number of regions (must match the array length in CLUSTER_REGIONS)
@@ -76,6 +77,10 @@ CLUSTER_COMPUTE_MAX_INSTANCE_SIZE=
 
 DB_ADMIN_USER=admin
 DB_ADMIN_PASSWORD=<strong-password>
+
+# Create the three database users. Atlas scopes them to the PROJECT, so set
+# this to false for the second and later clusters in the same project.
+CREATE_DB_USERS=true
 
 # Application user (readWriteAnyDatabase) and monitoring user (clusterMonitor)
 DB_APP_USER=app-user
@@ -99,8 +104,16 @@ DB_MONITOR_PASSWORD=<strong-password>
 
 The script will:
 1. Validate all required variables are set and that `CLUSTER_NUM_REGIONS` matches the `CLUSTER_REGIONS` array length.
-2. Run `terraform init` and `terraform apply`.
-3. Print the cluster connection strings once provisioning is complete.
+2. Run `terraform init`, select the Terraform workspace, and refuse to continue if that workspace already manages a *different* cluster.
+3. Run `terraform apply`.
+4. Print the cluster connection strings once provisioning is complete.
+
+Both scripts accept two environment variables, which is how one folder manages several clusters:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ENV_FILE` | `.env` | Which env file to read |
+| `CLUSTER_WORKSPACE` | `default` | Which Terraform workspace — and therefore which state file — to use |
 
 Atlas typically takes **5–10 minutes** to provision a new cluster. Terraform waits for the cluster to reach the `IDLE` state before returning.
 
@@ -128,7 +141,79 @@ least-privilege access.
 ./teardown.sh
 ```
 
-You will be prompted to type the cluster name to confirm. All resources (cluster, project, database users) are destroyed.
+You will be prompted to type the cluster name to confirm. All resources (cluster, search nodes, and any database users this workspace created) are destroyed.
+
+Pass the same `ENV_FILE` and `CLUSTER_WORKSPACE` you deployed with, or you will be looking at the wrong state:
+
+```bash
+CLUSTER_WORKSPACE=cluster-b ENV_FILE=.env.cluster-b ./teardown.sh
+```
+
+---
+
+## A second cluster in the same project
+
+Terraform keeps one state per workspace. Editing `CLUSTER_NAME` in `.env` and re-running does **not** add a cluster — it destroys the one already in state and builds a new one in its place. `deploy.sh` now detects that and stops before doing any damage:
+
+```
+ERROR: workspace "default" already manages the cluster "cluster-a",
+       but this run asks for "cluster-b".
+```
+
+To run two clusters side by side, give the second one its own env file and its own workspace:
+
+```bash
+# 1. copy the env file and change two things in it
+cp .env .env.cluster-b
+
+#    CLUSTER_NAME=cluster-b        <- must differ from the first cluster
+#    CREATE_DB_USERS=false         <- the project's users already exist
+#
+#    Leave ATLAS_PROJECT_ID as-is. Leave CLUSTER_REGIONS as-is if you want both
+#    clusters in the same regions.
+
+# 2. deploy it into its own workspace
+CLUSTER_WORKSPACE=cluster-b ENV_FILE=.env.cluster-b ./deploy.sh
+```
+
+The first cluster is untouched: it stays in the `default` workspace, and a plain `./deploy.sh` still targets it.
+
+### Why `CREATE_DB_USERS=false`
+
+Atlas database users belong to the **project**, not to a cluster. The first cluster created `DB_ADMIN_USER`, `DB_APP_USER` and `DB_MONITOR_USER`, and they already work against every cluster in the project. A second cluster that tries to create them again fails on a duplicate username — part-way through an apply that has already begun building a cluster.
+
+So leave the usernames and passwords in `.env.cluster-b` exactly as they are, and set `CREATE_DB_USERS=false`. The same credentials authenticate to both clusters.
+
+### Day-to-day
+
+| Task | Command |
+|---|---|
+| Deploy / update cluster A | `./deploy.sh` |
+| Deploy / update cluster B | `CLUSTER_WORKSPACE=cluster-b ENV_FILE=.env.cluster-b ./deploy.sh` |
+| Outputs for cluster B | `terraform workspace select cluster-b && terraform output` |
+| Destroy cluster B only | `CLUSTER_WORKSPACE=cluster-b ENV_FILE=.env.cluster-b ./teardown.sh` |
+| List workspaces | `terraform workspace list` |
+| Which one am I on? | `terraform workspace show` |
+
+If you find yourself typing the prefix often, export it for the session:
+
+```bash
+export CLUSTER_WORKSPACE=cluster-b ENV_FILE=.env.cluster-b
+./deploy.sh        # now targets cluster B
+unset CLUSTER_WORKSPACE ENV_FILE
+```
+
+State for a non-default workspace lives in `terraform.tfstate.d/<workspace>/terraform.tfstate`, which `.gitignore` already excludes.
+
+### Why you might want two
+
+Two clusters in one project and the same regions share **one Atlas private endpoint service per region**. That is the basis of the [`atlas-privatelink-tgw-multiregion`](../atlas-privatelink-tgw-multiregion/) demo, where both clusters are reached through a single pair of PrivateLink endpoints, distinguished only by port block:
+
+```bash
+sudo atlas-plink-test \
+  --srv cluster-a-pl-0.xxxxx.mongodb.net \
+  --srv cluster-b-pl-0.xxxxx.mongodb.net
+```
 
 ---
 
@@ -143,6 +228,7 @@ You will be prompted to type the cluster name to confirm. All resources (cluster
 | `CLUSTER_DISK_SIZE_GB` | Configurable (`0` = Atlas default, otherwise 10–4096) | Must be `0` — capacity is fixed per tier |
 | Availability | AWS, GCP, Azure | AWS from M40, Azure from M60. Not offered on GCP |
 | Compute / disk auto-scale | Available (enabled by default) | Not supported — the auto-scale block is skipped |
+| Cloud Backup | Optional (`CLUSTER_BACKUP_ENABLED`, off by default) | Mandatory — forced on |
 
 Setting `CLUSTER_INSTANCE_SIZE=M40_NVME` directly is equivalent to `CLUSTER_INSTANCE_SIZE=M40` plus `CLUSTER_STORAGE_CLASS=NVME`; Terraform normalises the two inputs into a single tier name.
 
@@ -178,14 +264,20 @@ CLUSTER_REGIONS='[
 | `main.tf` | Provider, project, cluster, search nodes, and database user resources |
 | `variables.tf` | All input variable declarations |
 | `outputs.tf` | Connection strings, cluster ID, and state emitted after apply |
-| `deploy.sh` | Validates `.env`, exports `TF_VAR_*`, runs `terraform apply` |
-| `teardown.sh` | Confirms intent, exports `TF_VAR_*`, runs `terraform destroy` |
+| `deploy.sh` | Validates the env file, exports `TF_VAR_*`, selects the workspace, guards against replacing another cluster, runs `terraform apply` |
+| `teardown.sh` | Confirms intent, exports `TF_VAR_*`, selects the workspace, runs `terraform destroy` |
 | `.env.example` | Template for all required environment variables |
 | `.gitignore` | Excludes `.env`, Terraform state, and the `.terraform/` cache |
 
 ---
 
 ## Troubleshooting
+
+**`USER_ALREADY_EXISTS` / duplicate username when creating a second cluster**  
+Atlas database users are scoped to the project, not the cluster. Set `CREATE_DB_USERS=false` in that cluster's env file and re-run; the existing users already work against the new cluster.
+
+**`ERROR: workspace "..." already manages the cluster "..."`**  
+You changed `CLUSTER_NAME` without changing workspace. Applying would have destroyed the existing cluster. Re-run with `CLUSTER_WORKSPACE=<new-name> ENV_FILE=<new-env-file>`.
 
 **`Error: 403 Forbidden` from Atlas API**  
 Your API key does not have the Organization Project Creator role. Check Access Manager in the Atlas UI.
@@ -205,11 +297,18 @@ Local NVMe is not available on GCP. Either set `CLUSTER_STORAGE_CLASS=SSD` or sw
 **`CANNOT_MODIFY_DISK_SIZE_FOR_NVME_CLUSTER` / `cluster_disk_size_gb must be 0 with local NVMe storage`**
 NVMe tiers have a fixed disk capacity. Set `CLUSTER_DISK_SIZE_GB=0` and pick a larger NVMe tier if you need more space.
 
+**`Cannot create an NVMe cluster without Cloud Backup enabled` (`ATLAS_GENERAL_ERROR`)**
+Atlas requires Cloud Backup on local NVMe clusters. `deploy.sh` now forces `CLUSTER_BACKUP_ENABLED=true` whenever NVMe is selected, so re-run `./deploy.sh`. Note that backup snapshots add cost.
+
 **`HTTP 400 … INVALID_INSTANCE_SIZE` with an `_NVME` tier**
 The requested tier is not offered as NVMe in that region. NVMe starts at M40 on AWS and M60 on Azure, and not every region carries every NVMe tier — check the tier list in the Atlas UI for your region.
+
+**`HTTP 400 … NO_COMMON_INSTANCE_FAMILY`**
+"There is no common supported instance family in the selected regions." The tier itself is available in every region in `CLUSTER_REGIONS`, but the underlying host families differ, and Atlas needs one family that covers them all. This is easy to hit with `CLUSTER_STORAGE_CLASS=NVME` across regions, because each NVMe tier maps to a specific host family. Either drop to a single region, or try a different secondary region until the tier resolves to a shared family. `CLUSTER_STORAGE_CLASS=SSD` is not affected.
 
 **Cluster stuck provisioning**
 Atlas clusters can occasionally take longer than expected. Check the Atlas UI → Clusters page for status. Terraform will keep waiting.
 
 **`Automated Embedding on cluster '<name>' requires Compute Auto-Scale enabled`**
 The cluster was provisioned (or modified) with `CLUSTER_COMPUTE_AUTOSCALE_ENABLED=false`, or pre-dates this Terraform's auto-scale support. Set `CLUSTER_COMPUTE_AUTOSCALE_ENABLED=true` in `.env` and re-run `./deploy.sh` — Atlas will enable Compute Auto-Scale in place on the existing cluster.
+

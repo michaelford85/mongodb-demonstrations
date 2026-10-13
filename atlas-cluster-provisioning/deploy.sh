@@ -14,8 +14,12 @@ if ! command -v jq &>/dev/null; then
   exit 1
 fi
 
-if [ ! -f .env ]; then
-  echo "ERROR: .env not found. Copy .env.example to .env and fill in your values."
+# ENV_FILE lets one folder manage several clusters:
+#   ENV_FILE=.env.cluster-b ./deploy.sh
+ENV_FILE="${ENV_FILE:-.env}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: $ENV_FILE not found. Copy .env.example to $ENV_FILE and fill in your values."
   exit 1
 fi
 
@@ -23,7 +27,7 @@ fi
 
 set -a
 # shellcheck source=/dev/null
-source .env
+source "$ENV_FILE"
 set +a
 
 # ── Validate required variables ────────────────────────────────────────────────
@@ -77,8 +81,15 @@ fi
 
 CLUSTER_DISK_SIZE_GB="${CLUSTER_DISK_SIZE_GB:-0}"
 
-# Local NVMe is only offered on AWS and Azure, and its disk capacity is fixed
-# per tier — Atlas rejects an explicit disk size.
+CLUSTER_BACKUP_ENABLED="$(echo "${CLUSTER_BACKUP_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')"
+if [ "$CLUSTER_BACKUP_ENABLED" != "true" ] && [ "$CLUSTER_BACKUP_ENABLED" != "false" ]; then
+  echo "ERROR: CLUSTER_BACKUP_ENABLED must be true or false (got: $CLUSTER_BACKUP_ENABLED)."
+  exit 1
+fi
+
+# Local NVMe is only offered on AWS and Azure, its disk capacity is fixed per
+# tier — Atlas rejects an explicit disk size — and Atlas will not create an
+# NVMe cluster with Cloud Backup disabled.
 if [ "$CLUSTER_STORAGE_CLASS" = "NVME" ] || [[ "$(echo "$CLUSTER_INSTANCE_SIZE" | tr '[:lower:]' '[:upper:]')" == *_NVME ]]; then
   if [ "$CLUSTER_CLOUD_PROVIDER" != "AWS" ] && [ "$CLUSTER_CLOUD_PROVIDER" != "AZURE" ]; then
     echo "ERROR: local NVMe storage is only offered on AWS and AZURE (got: $CLUSTER_CLOUD_PROVIDER)."
@@ -87,6 +98,10 @@ if [ "$CLUSTER_STORAGE_CLASS" = "NVME" ] || [[ "$(echo "$CLUSTER_INSTANCE_SIZE" 
   if [ "$CLUSTER_DISK_SIZE_GB" != "0" ]; then
     echo "ERROR: CLUSTER_DISK_SIZE_GB must be 0 with local NVMe storage — Atlas fixes disk capacity per NVMe tier."
     exit 1
+  fi
+  if [ "$CLUSTER_BACKUP_ENABLED" != "true" ]; then
+    echo "NOTE: local NVMe requires Atlas Cloud Backup — enabling it for this deploy."
+    CLUSTER_BACKUP_ENABLED=true
   fi
 fi
 
@@ -100,11 +115,13 @@ export TF_VAR_cluster_cloud_provider="$CLUSTER_CLOUD_PROVIDER"
 export TF_VAR_cluster_instance_size="$CLUSTER_INSTANCE_SIZE"
 export TF_VAR_cluster_storage_class="$CLUSTER_STORAGE_CLASS"
 export TF_VAR_cluster_disk_size_gb="$CLUSTER_DISK_SIZE_GB"
+export TF_VAR_cluster_backup_enabled="$CLUSTER_BACKUP_ENABLED"
 export TF_VAR_mongodb_version="$MONGODB_VERSION"
 export TF_VAR_cluster_regions="$CLUSTER_REGIONS"
 export TF_VAR_cluster_search_nodes="$CLUSTER_SEARCH_NODES"
 export TF_VAR_cluster_compute_autoscale_enabled="${CLUSTER_COMPUTE_AUTOSCALE_ENABLED:-true}"
 export TF_VAR_cluster_compute_max_instance_size="${CLUSTER_COMPUTE_MAX_INSTANCE_SIZE:-}"
+export TF_VAR_create_db_users="${CREATE_DB_USERS:-true}"
 export TF_VAR_db_admin_user="$DB_ADMIN_USER"
 export TF_VAR_db_admin_password="$DB_ADMIN_PASSWORD"
 export TF_VAR_db_app_user="$DB_APP_USER"
@@ -119,12 +136,54 @@ echo "Deploying Atlas cluster:"
 echo "  Project : $ATLAS_PROJECT_ID"
 echo "  Cluster : $CLUSTER_NAME ($CLUSTER_CLOUD_PROVIDER / $CLUSTER_INSTANCE_SIZE)"
 echo "  Storage : $CLUSTER_STORAGE_CLASS ($([ "$CLUSTER_DISK_SIZE_GB" = "0" ] && echo "Atlas default size" || echo "${CLUSTER_DISK_SIZE_GB} GB"))"
+echo "  Backup  : $CLUSTER_BACKUP_ENABLED"
 echo "  Regions : $CLUSTER_NUM_REGIONS"
 echo "  MongoDB : $MONGODB_VERSION"
 echo "  Search nodes: $CLUSTER_SEARCH_NODES"
+echo "  DB users    : $([ "${CREATE_DB_USERS:-true}" = "true" ] && echo "create" || echo "reuse the project's existing users")"
 echo ""
 
 terraform init -upgrade
+
+# ── Workspace ──────────────────────────────────────────────────────────────────
+# One Terraform state per cluster. CLUSTER_WORKSPACE defaults to "default" so
+# existing single-cluster setups keep working untouched; give the second and
+# subsequent clusters their own workspace.
+
+WORKSPACE="${CLUSTER_WORKSPACE:-default}"
+if ! terraform workspace select "$WORKSPACE" 2>/dev/null; then
+  echo "Creating Terraform workspace: $WORKSPACE"
+  terraform workspace new "$WORKSPACE"
+fi
+
+# Guard: never let one cluster's state be pointed at a different cluster name.
+# Without this, changing CLUSTER_NAME in .env DESTROYS the cluster already in
+# this workspace and builds a new one.
+existing_cluster=$(terraform state pull 2>/dev/null |
+  jq -r '.resources[]? | select(.type == "mongodbatlas_advanced_cluster") | .instances[0].attributes.name // empty' |
+  head -1)
+
+if [ -n "$existing_cluster" ] && [ "$existing_cluster" != "$CLUSTER_NAME" ]; then
+  cat <<GUARD
+
+ERROR: workspace "$WORKSPACE" already manages the cluster "$existing_cluster",
+       but this run asks for "$CLUSTER_NAME".
+
+Applying would DESTROY "$existing_cluster" and create "$CLUSTER_NAME" in its
+place. To run a second cluster alongside the first:
+
+  CLUSTER_WORKSPACE=$CLUSTER_NAME ENV_FILE=$ENV_FILE ./deploy.sh
+
+and set CREATE_DB_USERS=false in $ENV_FILE - Atlas database users belong to the
+project and the first cluster already created them.
+
+GUARD
+  exit 1
+fi
+
+echo "Workspace : $WORKSPACE"
+echo ""
+
 terraform apply -auto-approve
 
 echo ""
