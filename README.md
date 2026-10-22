@@ -29,6 +29,7 @@ cp .env.example .env        # fill in connection details
 | Folder | Purpose |
 |---|---|
 | **[`full-text-search/`](./full-text-search/)** | Atlas Search (Lucene) vs. regex over `sample_mflix` — performance, relevance scoring, and fuzzy matching. |
+| **[`atlas-search-index-benchmark/`](./atlas-search-index-benchmark/)** | Benchmark Search index build-to-ready time and lexical search latency/throughput (plus optional capped write churn) — plan-only by default, triple opt-in writes, non-production clusters only. |
 | **[`hybrid-search-lab/`](./hybrid-search-lab/)** | Keyword, semantic, hybrid (`$rankFusion`), and reranked search side by side, each showing the exact pipeline it ran. |
 | **[`voyageai-vector-embeddings/`](./voyageai-vector-embeddings/)** | Client-side Voyage AI embeddings with `$vectorSearch` and reranking over a product catalog. |
 | **[`voyageai-embedding-eval/`](./voyageai-embedding-eval/)** | Streamlit evaluation of Voyage AI vs. one competing embedding model on a public BEIR benchmark using Atlas Vector Search — NDCG, MRR, Recall, Precision, MAP, with an offline dry run. |
