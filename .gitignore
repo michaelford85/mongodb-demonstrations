@@ -5,3 +5,7 @@
 **/.env.me
 *.venv
 *.python-version
+.opencode
+.vscode/
+probe-out.txt
+**/_prompts/

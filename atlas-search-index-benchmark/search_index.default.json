@@ -1,0 +1,36 @@
+{
+  "name": "bench_lexical_index",
+  "definition": {
+    "mappings": {
+      "dynamic": false,
+      "fields": {
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "body": { "type": "string" },
+        "category": { "type": "token" },
+        "status": { "type": "token" },
+        "region": { "type": "token" },
+        "priority": { "type": "number" },
+        "score": { "type": "number" },
+        "views": { "type": "number" },
+        "is_public": { "type": "boolean" },
+        "created_at": { "type": "date" },
+        "updated_at": { "type": "date" },
+        "owner_id": { "type": "token" },
+        "language": { "type": "token" },
+        "version": { "type": "number" },
+        "tags": { "type": "string" },
+        "authors": { "type": "string" },
+        "line_items": {
+          "type": "document",
+          "fields": {
+            "sku": { "type": "token" },
+            "qty": { "type": "number" },
+            "price": { "type": "number" }
+          }
+        },
+        "_id": { "type": "token" }
+      }
+    }
+  }
+}

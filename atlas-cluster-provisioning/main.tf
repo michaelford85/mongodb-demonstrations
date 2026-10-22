@@ -41,6 +41,10 @@ locals {
   # Cluster-tier and disk auto-scaling are unavailable on the Local NVMe SSD
   # class, so the auto_scaling block is dropped entirely for NVMe clusters.
   compute_autoscale_enabled = var.cluster_compute_autoscale_enabled && !local.use_nvme
+
+  # Atlas refuses to create an NVMe cluster without Cloud Backup, so NVMe
+  # turns it on regardless of the input.
+  backup_enabled = var.cluster_backup_enabled || local.use_nvme
 }
 
 # ── Cluster ────────────────────────────────────────────────────────────────────
@@ -52,6 +56,7 @@ resource "mongodbatlas_advanced_cluster" "demo" {
   name                   = var.cluster_name
   cluster_type           = "REPLICASET"
   mongo_db_major_version = var.mongodb_version
+  backup_enabled         = local.backup_enabled
 
   replication_specs {
     dynamic "region_configs" {
@@ -115,9 +120,16 @@ resource "mongodbatlas_search_deployment" "demo" {
   ]
 }
 
+# ── Database users ─────────────────────────────────────────────────────────────
+# Atlas database users belong to the PROJECT, not to a cluster, and every
+# cluster in the project shares them. So a second cluster in the same project
+# must not try to create them again - Atlas rejects the duplicate username.
+# Set CREATE_DB_USERS=false for every cluster after the first.
+
 # ── Admin Database User ────────────────────────────────────────────────────────
 
 resource "mongodbatlas_database_user" "admin" {
+  count              = var.create_db_users ? 1 : 0
   project_id         = var.atlas_project_id
   username           = var.db_admin_user
   password           = var.db_admin_password
@@ -133,6 +145,7 @@ resource "mongodbatlas_database_user" "admin" {
 # Read/write on every database, with no administrative privileges.
 
 resource "mongodbatlas_database_user" "app" {
+  count              = var.create_db_users ? 1 : 0
   project_id         = var.atlas_project_id
   username           = var.db_app_user
   password           = var.db_app_password
@@ -148,6 +161,7 @@ resource "mongodbatlas_database_user" "app" {
 # Read-only access to server status and diagnostic commands. No data access.
 
 resource "mongodbatlas_database_user" "monitor" {
+  count              = var.create_db_users ? 1 : 0
   project_id         = var.atlas_project_id
   username           = var.db_monitor_user
   password           = var.db_monitor_password

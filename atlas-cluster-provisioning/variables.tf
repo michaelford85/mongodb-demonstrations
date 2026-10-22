@@ -59,6 +59,12 @@ variable "cluster_disk_size_gb" {
   }
 }
 
+variable "cluster_backup_enabled" {
+  description = "Enable Atlas Cloud Backup. Forced on for local NVMe clusters, which Atlas refuses to create without it."
+  type        = bool
+  default     = false
+}
+
 variable "mongodb_version" {
   description = "MongoDB major version (e.g. 7.0, 8.0)"
   type        = string
@@ -126,4 +132,10 @@ variable "db_monitor_password" {
   description = "Password for the monitoring database user"
   type        = string
   sensitive   = true
+}
+
+variable "create_db_users" {
+  description = "Create the admin, app and monitoring database users. Atlas database users are scoped to the PROJECT and shared by every cluster in it, so set this false for the second and subsequent clusters in the same project - otherwise Atlas rejects the duplicate usernames."
+  type        = bool
+  default     = true
 }
