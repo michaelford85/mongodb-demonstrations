@@ -1,0 +1,31 @@
+# Non-secret sample values. Copy to terraform.tfvars (gitignored) or pass -var.
+aws_region             = "us-east-1"
+resource_prefix        = "pg-atlas-asp-demo"
+vpc_cidr               = "10.90.0.0/16"
+
+# Internet Gateway + default route. Required (with local_ingress_cidr and
+# rds_publicly_accessible = true) to seed PostgreSQL from a laptop.
+# Keep false for a fully private stack (seed from inside the VPC).
+enable_igw              = false
+
+# Your local public /32, allowed on the RDS SG when set.
+local_ingress_cidr      = ""
+rds_publicly_accessible = false
+
+# Atlas-initiated peering: create it in the Atlas UI first
+# (Network Access → Peering → "Add outbound connection" → AWS, targeting this
+# stack's demo VPC), then copy its Peering ID (pcx-…) and the Atlas CIDR here.
+atlas_peering_id       = ""
+atlas_cidr             = ""
+atlas_owner_account_id = ""
+
+db_name                 = "demodb"
+db_admin_username       = "demo_admin"
+db_instance_class       = "db.t3.micro"
+
+msk_kafka_version = "3.8.x"
+msk_instance_type = "kafka.t3.small"
+msk_broker_count  = 2
+
+dms_instance_class = "dms.t3.small"
+kafka_topic        = "cdc-knowledge-items"

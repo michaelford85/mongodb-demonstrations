@@ -82,6 +82,12 @@ class BenchmarkConfig:
     # Manual metadata (recorded in results; not inferred from the URI)
     search_node_tier: str = "not-configured"
     search_node_topology: str = "not-configured"
+    region_names: list = field(default_factory=list)  # operator-entered, comma-separated
+    search_node_count: str = "not-configured"        # operator-entered; never inferred
+
+    # Sustained validation: representative query must succeed for this whole
+    # window before the index-build phase reports "ready".
+    validation_window_seconds: float = 30.0
 
     problems: list = field(default_factory=list)
 
@@ -134,6 +140,8 @@ def validate(cfg: BenchmarkConfig) -> list[str]:
         problems.append(f"index_definition_file not found: {cfg.index_definition_file}")
     if cfg.ttl_simulation not in {"none", "delete_only"}:
         problems.append("ttl_simulation must be 'none' or 'delete_only'")
+    if cfg.validation_window_seconds < 0:
+        problems.append("validation_window_seconds must be >= 0")
     for gate_name, value in (("ALLOW_ATLAS_BENCHMARK_WRITES", cfg.allow_writes),
                              ("BENCHMARK_CONFIRM", cfg.confirmed)):
         if value and not cfg.uri:
@@ -176,6 +184,10 @@ def load_config(env: dict | None = None) -> BenchmarkConfig:
         index_ready_timeout_seconds=_num(env, "INDEX_READY_TIMEOUT_SECONDS", 3600.0),
         search_node_tier=(env.get("SEARCH_NODE_TIER") or "not-configured").strip(),
         search_node_topology=(env.get("SEARCH_NODE_TOPOLOGY") or "not-configured").strip(),
+        region_names=[r.strip() for r in (env.get("ATLAS_BENCHMARK_REGIONS") or "").split(",")
+                      if r.strip()],
+        search_node_count=(env.get("SEARCH_NODE_COUNT") or "not-configured").strip(),
+        validation_window_seconds=_num(env, "INDEX_VALIDATION_WINDOW_SECONDS", 30.0),
     )
     cfg.problems = validate(cfg)
     return cfg
@@ -214,7 +226,11 @@ def summarize(cfg: BenchmarkConfig) -> dict:
         "manual_metadata": {
             "search_node_tier": cfg.search_node_tier,
             "search_node_topology": cfg.search_node_topology,
-            "note": "entered by operator; not inferred from the URI",
+            "region_names": cfg.region_names,
+            "search_node_count": cfg.search_node_count,
+            "note": "entered by operator; not inferred from the URI; "
+                    "region count and node count must be verified in Atlas",
         },
+        "validation_window_seconds": cfg.validation_window_seconds,
         "problems": cfg.problems,
     }

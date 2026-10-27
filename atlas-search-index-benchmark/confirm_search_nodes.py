@@ -91,6 +91,9 @@ def main() -> int:
         report["operator_to_do"] = [
             "Atlas UI > Cluster > Search tab: confirm the index shows the Search Nodes "
             "(tier/topology) and record query metric charts per region.",
+            "Per-node/per-region Search Node health is not exposed by the driver; "
+            "fill in per-region observed state from the Atlas UI/Support in the "
+            "operator_evidence fields of results/index-*.json.",
             "Record the DSN transition timestamps in results/dsn_transition.md "
             "(e.g., index went on-deck -> READY after the DSN change).",
             "Optionally re-run `python benchmark.py load` and compare with the "

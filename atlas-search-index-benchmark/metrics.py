@@ -47,6 +47,23 @@ def save_results(results: dict, out_dir: str, stem: str) -> tuple[str, str]:
     return json_path, md_path
 
 
+def milestone_summary(milestones: dict) -> dict:
+    """Elapsed seconds between milestone UTC timestamps, in recorded order.
+
+    Accepts a mapping of milestone name -> ISO UTC timestamp (or None).
+    Elapsed is measured from the first milestone; None values pass through.
+    """
+    import datetime as dt
+    times = {k: (dt.datetime.fromisoformat(v) if v else None)
+             for k, v in milestones.items()}
+    base = next((t for t in times.values() if t is not None), None)
+    out = {}
+    for name, t in times.items():
+        out[name] = (round((t - base).total_seconds(), 3)
+                     if (t is not None and base is not None) else None)
+    return out
+
+
 def to_markdown(results: dict) -> str:
     lines = [f"# Benchmark result: {results.get('run_id', 'unnamed')}",
              "", f"- UTC start: {results.get('utc_start')}",
