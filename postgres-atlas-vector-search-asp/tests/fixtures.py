@@ -68,6 +68,9 @@ def sample_messages() -> list[dict]:
     ]
 
 
-def load_pipeline_json() -> dict:
-    path = Path(__file__).parent.parent / "stream-processing" / "asp_pipeline.json"
-    return json.loads(path.read_text())
+def load_stage_artifacts() -> tuple[dict, dict]:
+    """Return (processor A: kafka staging, processor B: embedding + read model)."""
+    base = Path(__file__).parent.parent / "stream-processing"
+    return json.loads((base / "asp_stage_cdc.json").read_text()), json.loads(
+        (base / "asp_stage_vector.json").read_text()
+    )

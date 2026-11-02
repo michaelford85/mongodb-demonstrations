@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from dms_transform import transform  # noqa: E402
-from fixtures import control_message, dms_message, load_pipeline_json  # noqa: E402
+from fixtures import control_message, dms_message, load_stage_artifacts  # noqa: E402
 
 
 class TestSnapshotAndInsert:
@@ -77,29 +77,34 @@ class TestReplayedAndMalformed:
 
 class TestPipelineArtifact:
     def test_pipeline_is_valid_json_with_expected_stages(self):
-        pipeline = load_pipeline_json()
-        names = [next(iter(stage)) for stage in pipeline["pipeline"]]
-        assert list(names) == [
-            "$match", "$set", "$set", "$match", "$set",
-            "$https", "$set", "$project", "$merge",
+        a, b = load_stage_artifacts()
+        # Processor A: kafka → staging (no $https).
+        assert [next(iter(st)) for st in a["pipeline"]] == ["$source", "$match", "$set", "$project", "$merge"]
+        # Processor B: change stream → voyage → read model.
+        # NOTE: no $match before $https and no $$NOW anywhere — both trigger
+        # ASP serialization/runtime bugs (see README known limitations).
+        assert [next(iter(st)) for st in b["pipeline"]] == [
+            "$source", "$set", "$https", "$set", "$project", "$merge",
         ]
-        assert "$source" in pipeline["source"]
 
     def test_https_stage_targets_voyage(self):
-        pipeline = load_pipeline_json()
+        _, b = load_stage_artifacts()
+        pipeline = b
         https = next(s["$https"] for s in pipeline["pipeline"] if "$https" in s)
         assert https["method"] == "POST"
         assert https["onError"] == "dlq"
-        payload = https["payload"][0]["$project"]
-        assert payload["model"] == "voyage-3.5"
-        assert payload["input_type"] == "document"
-        assert payload["output_dimension"] == 1024
+        new_root = https["payload"][0]["$replaceRoot"]["newRoot"]
+        assert new_root["model"] == "voyage-4"
+        assert new_root["input_type"] == "document"
+        # Content-Type must come from the voyage-ai CONNECTION headers
+        # (operator-level headers are unnecessary in the two-processor design).
+        assert "headers" not in https
         for secret in ("Authorization", "Bearer", "sk-", "VOYAGE_API_KEY"):
             assert secret not in json.dumps(pipeline), "no secrets may be embedded in the pipeline file"
 
     def test_merge_is_delete_aware(self):
-        pipeline = load_pipeline_json()
-        merge = next(s["$merge"] for s in pipeline["pipeline"] if "$merge" in s)
+        _, b = load_stage_artifacts()
+        merge = next(s["$merge"] for s in b["pipeline"] if "$merge" in s)
         assert merge["whenMatched"]["$cond"]["then"] == "delete"
         assert merge["whenMatched"]["$cond"]["else"] == "replace"
         assert merge["whenNotMatched"]["$cond"]["then"] == "discard"
@@ -107,10 +112,12 @@ class TestPipelineArtifact:
         assert merge["into"]["db"] == "enterprise_search_demo"
 
     def test_vector_index_dimensions_match_model(self):
-        # Keep pipeline, index script, and README in agreement.
-        pipeline = load_pipeline_json()
-        https = next(s["$https"] for s in pipeline["pipeline"] if "$https" in s)
-        dims = https["payload"][0]["$project"]["output_dimension"]
-        assert dims in (256, 512, 1024, 2048)  # voyage-3.5 supported values
+        # The pipeline omits output_dimension (numeric literals break $https
+        # EJSON serialization), so it relies on the model's default dimension.
+        # Keep VOYAGE_DIMENSIONS (= the index numDimensions) at that default.
+        _, b = load_stage_artifacts()
+        pipeline_json = json.dumps(b["pipeline"])
+        assert "output_dimension" not in pipeline_json
+        assert "$$NOW" not in pipeline_json  # unavailable in ASP; corrupts $https
         index_script = (Path(__file__).parent.parent / "scripts" / "create_atlas_indexes.py").read_text()
         assert "VOYAGE_DIMENSIONS" in index_script

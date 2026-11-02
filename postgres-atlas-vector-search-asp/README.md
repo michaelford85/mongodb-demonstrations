@@ -19,7 +19,7 @@ flowchart TB
     end
 
     subgraph atlasvpc["Atlas project VPC (pre-existing cluster)"]
-        asp["Atlas Stream Processing<br/>$source → $https (Voyage AI) → $merge<br/>(delete-aware, DLQ: dlq_items)"]
+        asp["Atlas Stream Processing:<br/>kafka_cdc_stage → staging_items<br/>staging_to_vector → $https → search_items<br/>(delete-aware, DLQ: dlq_items)"]
         cluster["Existing Atlas cluster<br/>enterprise_search_demo.search_items<br/>(Atlas Vector Search index)"]
         asp -- "$merge / $vectorSearch" --> cluster
     end
@@ -42,7 +42,7 @@ Everything on the AWS side is Terraform-managed and AWS-managed: **no ECS, no cu
 
 1. Insert/update/delete synthetic rows in PostgreSQL.
 2. AWS DMS captures them via logical replication and publishes JSON change events to a private Amazon MSK topic.
-3. An Atlas Stream Processing processor consumes the topic, embeds the searchable text with **Voyage AI** over secure HTTPS (key stored in the Atlas connection registry, never in the pipeline file), and merges into a delete-aware read model keyed by the PostgreSQL primary key.
+3. Two Atlas Stream Processing processors take it from there: `kafka_cdc_stage` stages the raw read-model document (with delete markers) in Atlas, and `staging_to_vector` embeds the searchable text with **Voyage AI** over secure HTTPS (key stored in the Atlas connection registry, never in the pipeline file) and merges into a delete-aware read model keyed by the PostgreSQL primary key.
 4. A local Streamlit app runs semantic search with an optional entity-type filter over the read model.
 
 ## Verified design decisions (from official docs)
@@ -55,7 +55,7 @@ Everything on the AWS side is Terraform-managed and AWS-managed: **no ECS, no cu
 | ASP Kafka connection via **VPC peering**, `SASL_SSL` + `SCRAM-SHA-512` | Atlas Stream Processing supports Kafka connections with Public IP or VPC Peering network access; `SASL_SSL` + SCRAM mechanisms are supported (Atlas docs, *Add a Kafka Connection*). |
 | Embeddings via the ASP **`$https`** stage to Voyage AI | ASP HTTPS connections are defined in the connection registry with auth headers — the API key lives in Atlas, not in the pipeline artifact. `onError: "dlq"` routes failures to the dead letter queue. |
 | Deletes via `$merge.whenMatched` dynamic `"delete"` | ASP `$merge` supports a dynamic `whenMatched` expression resolving to `"delete" | "replace"` — used to propagate PostgreSQL deletes (documented pattern in the ASP `$merge` page). |
-| `voyage-3.5`, 1024 dimensions (256/512/1024/2048 supported) | Per the Voyage AI embeddings API. `VOYAGE_DIMENSIONS` must match the Atlas Vector Search index `numDimensions` — both read the same `.env` value. |
+| `voyage-4`, 1024 dimensions (256/512/1024/2048 supported) | Per the Voyage AI embeddings API. `VOYAGE_DIMENSIONS` must match the Atlas Vector Search index `numDimensions` — both read the same `.env` value. |
 
 ## Prerequisites
 
@@ -76,11 +76,11 @@ Copy `.env.example` → `.env` and fill in placeholders:
 | `ATLAS_DATABASE` | Demo database name (default `enterprise_search_demo`) |
 | `ATLAS_COLLECTION` | Read model collection (default `search_items`) |
 | `VOYAGE_API_KEY` | Voyage AI key for **local** scripts and the Streamlit app |
-| `VOYAGE_MODEL` | Embedding model (default `voyage-3.5`) |
+| `VOYAGE_MODEL` | Embedding model (default `voyage-4`) |
 | `VOYAGE_DIMENSIONS` | Must match the vector index (default `1024`) |
 | `PG_HOST`, `PG_PORT`, `PG_DATABASE`, `PG_USER`, `PG_PASSWORD`, `PG_SCHEMA`, `PG_TABLE` | PostgreSQL source used by seed/verify/cleanup scripts |
 
-> The local `VOYAGE_API_KEY` does **not** configure Atlas Stream Processing. The ASP processor gets its Voyage key from the HTTPS connection registry entry you create in the Atlas UI (step 5 below). `.env` is gitignored and never committed.
+> The local `VOYAGE_API_KEY` does **not** configure Atlas Stream Processing. The ASP processors get their Voyage key from the HTTPS connection registry entry you create in the Atlas UI (step 6 below). `.env` is gitignored and never committed.
 
 AWS credentials follow the standard AWS credential chain (`aws configure`, SSO, environment) — never put AWS secret keys in `.env`. The RDS master password is passed via `TF_VAR_db_admin_password` or `-var`; it is not stored in tfvars. Treat `terraform.tfstate` as sensitive — it is gitignored.
 
@@ -166,10 +166,20 @@ In the Atlas UI, project **Stream Processing** → create a stream processing wo
 a. **Connection registry → + Add Connection → Kafka**:
    - Name: `demo-msk`
    - Network access: **VPC Peering** (requires step 3)
-   - Security protocol: `SASL_SSL`, mechanism `SCRAM-SHA-512`
-   - Username / password: the SCRAM secret created by Terraform (fetch with
-     `aws secretsmanager get-secret-value --secret-id <kafka_scram_secret_arn>`)
-   - Bootstrap servers: `terraform output msk_bootstrap_brokers_sasl_scram`
+   - Bootstrap servers (with the SASL/SCRAM port `:9096` — use the full comma-separated string):
+     ```bash
+     terraform -chdir=terraform output -raw msk_bootstrap_brokers_sasl_scram
+     ```
+   - Security protocol: `SASL_SSL`, mechanism: `SCRAM-SHA-512`
+   - Certificate Authority: leave the default (MSK uses Amazon Trust Services; no upload needed)
+   - Username / password from the SCRAM secret (note the required `-raw` flag — without it the value is passed with literal JSON quotes and the fetch fails):
+     ```bash
+     aws secretsmanager get-secret-value \
+       --secret-id "$(terraform -chdir=terraform output -raw kafka_scram_secret_arn)" \
+       --query SecretString --output text | python3 -m json.tool
+     ```
+     Use the `username` (`demo_kafka_user`) and `password` values from that output.
+   - Configuration file: leave empty.
 
 b. **Connection registry → + Add Connection → HTTPS**:
    - Name: `voyage-ai`, URL: `https://api.voyageai.com/v1`
@@ -179,11 +189,15 @@ b. **Connection registry → + Add Connection → HTTPS**:
 c. **Connection registry → + Add Connection → Atlas Database**:
    - Name: `demo-atlas`, select the existing cluster.
 
-d. Create a **Stream Processor** on the workspace: paste the contents of
-   `stream-processing/asp_pipeline.json` and replace
-   `<KAFKA_CONNECTION>`, `<VOYAGE_HTTPS_CONNECTION>`, and `<ATLAS_CONNECTION>`
-   with the three connection names above. Configure the processor's **dead letter
-   queue** to `demo-atlas` / `enterprise_search_demo` / `dlq_items`, then start it.
+d. Create **two stream processors** (the two-processor design — see Known limitations for why the embedding cannot live in the same processor as the Kafka source):
+
+   **Processor A — CDC staging** (paste `stream-processing/asp_stage_cdc.json` into the JSON editor, replacing `<KAFKA_CONNECTION>` / `<ATLAS_CONNECTION>` with `demo-msk` / `demo-atlas`): consumes the Kafka topic and stages the raw read-model document (with delete markers) into `enterprise_search_demo.staging_items`.
+
+   **Processor B — embedding + read model** (paste `stream-processing/asp_stage_vector.json` — connection names are already filled): watches `staging_items`, embeds `searchable_text` with Voyage AI over `$https`, and materializes the delete-aware read model in `search_items`.
+
+   Both processors define their DLQ under `options.dlq` (→ `demo-atlas` / `enterprise_search_demo` / `dlq_items`). If the JSON editor drops it (creation fails with "DLQ must be specified if $https.onError is dlq"), create the processor via `mongosh` on the workspace instead:
+   `sp.createStreamProcessor("<name>", pipeline, { dlq: { connectionName: "demo-atlas", db: "enterprise_search_demo", coll: "dlq_items" } })`.
+   Leave "Start stream processor upon creation" checked for both.
 
 Stream processors *can* be declared with the Atlas Terraform provider, but doing so would place the Voyage API key (a connection-registry header value) into Terraform configuration and state, so this demo performs the one-time setup in the UI. The Atlas Administration API can automate it if you already manage Atlas API keys there.
 
@@ -240,23 +254,44 @@ Only claim the read model is current after `verify_sync.py --id N` (or `--delete
 
 Type a query, optionally filter by entity type, and inspect ranked results with similarity scores and source metadata (operation, source ID, update time). Suggested queries: *"how do I get my laptop replaced?"*, *"who approves large purchases?"*.
 
-## Cleanup
+## Cleanup and teardown
+
+Demo-owned data only (never the Atlas cluster, other databases, or other repos' resources):
 
 ```bash
 .venv/bin/python scripts/cleanup_demo.py        # dry run: lists what would be removed
 .venv/bin/python scripts/cleanup_demo.py --yes  # actually deletes demo-owned data only
 ```
 
-Removes: the `enterprise_search_demo` database (read model, DLQ) and its search index, the PostgreSQL demo table's data, and local generated files. **Never touches the Atlas cluster, other databases, or other repos' resources.** Then tear down AWS:
+This removes the `enterprise_search_demo` database (read model, staging, DLQ) and its search index, the PostgreSQL demo table's data, and local generated files.
 
-```bash
-cd terraform && terraform destroy   # review the plan carefully before confirming
-```
+Then tear down the running services and AWS resources **in this order**:
 
-Teardown notes: stop the DMS replication task first (a running task blocks destroy), and terminate the Atlas-initiated VPC peering from the **Atlas UI** (Network Access → Peering → Terminate) if it still exists — the peering connection lives outside Terraform state, and a leftover active peering will block VPC deletion with `DependencyViolation`.
+1. **Stop and drop the stream processors** (they bill hourly, and a running processor blocks other teardown steps):
+   ```js
+   // in mongosh on the workspace:
+   sp.kafka_cdc_stage.stop(); sp.kafka_cdc_stage.drop()
+   sp.staging_to_vector.stop(); sp.staging_to_vector.drop()
+   ```
+2. **Delete the three connection-registry entries** (`demo-msk`, `voyage-ai`, `demo-atlas`) in the Atlas UI.
+3. **Stop the DMS replication task** (a running task blocks `terraform destroy`):
+   ```bash
+   aws dms stop-replication-task      --replication-task-arn "$(terraform -chdir=terraform output -raw dms_replication_task_arn)"
+   ```
+4. **Destroy the AWS stack**:
+   ```bash
+   cd terraform && terraform destroy   # review the plan carefully before confirming
+   ```
+5. **Terminate the VPC peering from the Atlas UI** (Network Access → Peering → Terminate) if it still exists — the peering connection lives outside Terraform state, and a leftover active peering will block VPC deletion with `DependencyViolation`. If `terraform destroy` fails with `DependencyViolation` on the VPC, this is why: delete the peering and re-run `terraform destroy`.
+
+Optional extras: the KMS key schedules its own deletion (7-day window), and the `.venv`, `terraform.tfstate*`, and `tfplan` files remain locally (gitignored) — delete them once the destroy is confirmed.
 
 ## Known limitations
 
+- **`$$NOW` must not appear anywhere in a stream processor that uses `$https`.** During validation, including `"processed_at": "$$NOW"` in a downstream `$project` stage caused every `$https` request to fail with Voyage returning `400: "Your request body cannot be parsed as valid JSON"` — even though the echoed request body was byte-perfect JSON. The processors here avoid `$$NOW` entirely (`processed_at` is dropped; `source_updated_at` comes from the source data). The same failures occurred regardless of processor name, creation path (UI editor vs mongosh), pipeline ordering, or payload construction (`$project` vs `$replaceRoot`), and were only resolved by the two-processor split plus removing `$$NOW`. If you hit this, it is worth a MongoDB support case (correlation ID from validation: `18e40abc0f5ad9dae0c8f274`).
+- **Two-processor design.** The Kafka source and the `$https` call run in separate processors (`kafka_cdc_stage` → `staging_items` → `staging_to_vector`), joined by an Atlas change stream. This shape was validated end to end; the single-processor equivalent failed for the reason above.
+- **No `$match` before `$https`.** A `$match` stage with `$or`/`$exists`/`$in` ahead of `$https` also correlated with the corrupted-request failures; DMS control records therefore flow through and land in the DLQ (harmless, and it exercises the DLQ).
+- **Kafka sources start at the latest offset.** A newly created processor only processes events emitted after it starts; the seed script can re-emit any row (`--update-id N`) to reproduce history.
 - **Network path requires VPC peering.** Because MSK SASL/SCRAM clusters cannot be public and DMS Kafka targets cannot use IAM auth, there is no public-IP fallback. If your Atlas project's VPC cannot peer the demo VPC (overlapping CIDRs, cross-account), the demo cannot run without revisiting the network design.
 - **Delete handling** relies on ASP `$merge` dynamic `whenMatched: "delete"`; PostgreSQL `REPLICA IDENTITY FULL` must be set (the seed script does it) so deletes and updates carry a usable row image.
 - **Embedding call per change event.** `$https` is invoked once per CDC message; this is fine for demo volume and unsuitable for high-throughput production paths.

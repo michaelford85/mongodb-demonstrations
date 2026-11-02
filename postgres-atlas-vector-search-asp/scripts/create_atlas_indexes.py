@@ -32,6 +32,14 @@ def main() -> None:
     cfg = load_config()
     collection = atlas_collection(cfg)
 
+    # A search index can't be created on a non-existent collection; the
+    # stream processor creates the collection only when the first message
+    # arrives, so create it up front.
+    db = collection.database
+    if cfg["collection"] not in db.list_collection_names():
+        db.create_collection(cfg["collection"])
+        print(f"Created collection {cfg['database']}.{cfg['collection']}.")
+
     vector_index = {
         "name": "search_items_vector",
         "type": "vectorSearch",

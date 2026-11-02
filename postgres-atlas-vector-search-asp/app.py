@@ -11,7 +11,7 @@ from pathlib import Path
 
 import streamlit as st
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 from common import atlas_collection, load_config, voyage_embed  # noqa: E402
 
 st.set_page_config(page_title="CDC Vector Search Demo", page_icon="🔎", layout="wide")
@@ -45,7 +45,6 @@ def vector_search(collection, embedding, entity_type: str | None, limit: int):
             "source_id": 1,
             "source_updated_at": 1,
             "cdc_operation": 1,
-            "processed_at": 1,
         }},
     ]
     return list(collection.aggregate(pipeline))
@@ -93,8 +92,8 @@ def main() -> None:
 
     st.caption(
         f"{len(results)} result(s) — freshness: the newest document in this "
-        f"result set was ingested at "
-        f"{max((r.get('processed_at') for r in results), default=None)}."
+        f"result set was updated at "
+        f"{max((r.get('source_updated_at') for r in results), default=None)}."
     )
     for r in results:
         with st.container(border=True):
