@@ -1,0 +1,5 @@
+streamlit>=1.35.0
+pymongo>=4.7.0
+python-dotenv>=1.0.0
+pytest>=8.0.0
+mongomock>=4.1.2  # tests only: in-memory MongoDB stand-in, no cluster needed
