@@ -74,7 +74,8 @@ if run:
     st.markdown(f"Request A: "
                 f"{ok_badge('202 ACCEPTED') if results[0].accepted else err_badge(CAP_EXCEEDED)}"
                 f" · Request B: "
-                f"{ok_badge('202 ACCEPTED') if results[1].accepted else err_badge(CAP_EXCEEDED)}")
+                f"{ok_badge('202 ACCEPTED') if results[1].accepted else err_badge(CAP_EXCEEDED)}",
+                unsafe_allow_html=True)
     if len(wins) == 1 and len(losses) == 1:
         st.success("Exactly one succeeded, one was rejected — the atomic "
                    "condition can only ever match once.")

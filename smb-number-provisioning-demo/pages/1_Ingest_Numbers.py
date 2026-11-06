@@ -13,7 +13,7 @@ import streamlit as st
 
 from lib.cap_service import (DEFAULT_CAP, BatchResult, process_ingest,
                              reactivate_number, transfer_number)
-from lib.config import RACE_ACCOUNT_ID
+from lib.config import ACCOUNTS_COLLECTION, RACE_ACCOUNT_ID
 from lib.sample_data import FICTIONAL_TNS, seed_demo
 from lib.ui import (connection_guard, demo_scope_note, err_badge, ok_badge,
                     synthetic_note)
@@ -21,6 +21,9 @@ from lib.ui import (connection_guard, demo_scope_note, err_badge, ok_badge,
 st.set_page_config(page_title="Ingest numbers · SMB provisioning demo",
                    page_icon="⬇️", layout="wide")
 connection_guard()
+
+from lib.ui import db as cached_db
+needs_seed = cached_db()[ACCOUNTS_COLLECTION].count_documents({}) == 0
 
 st.markdown("# ① Ingest numbers")
 st.caption("Three entry routes, one shared validation and ingestion service. "
@@ -32,7 +35,6 @@ demo_scope_note()
 
 def run_ingest(account_id: str, items: list[dict], channel: str,
                idem_key: str, cap: int = DEFAULT_CAP) -> BatchResult:
-    from lib.ui import db as cached_db
     return process_ingest(cached_db(), account_id, items, channel,
                           cap=int(cap), idempotency_key=idem_key)
 
@@ -45,17 +47,21 @@ def render_result(res: BatchResult) -> None:
     for r in res.results:
         if r.ok:
             st.markdown(f"{ok_badge(r.code)} · `{r.tn}` ({r.number_type}) "
-                        f"— {r.detail}")
+                        f"— {r.detail}", unsafe_allow_html=True)
         else:
             st.markdown(f"{err_badge(r.code)} · `{r.tn or '—'}` "
-                        f"({r.number_type or '—'}) — {r.detail}")
+                        f"({r.number_type or '—'}) — {r.detail}",
+                        unsafe_allow_html=True)
     st.caption(f"channel=`{res.channel}` · idempotencyKey=`{res.idempotency_key}`"
                f" · write path: "
                f"{'transactions' if res.used_transactions else 'reservation + compensation (non-atomic fallback)'}")
 
 
 with st.expander("Step 0 · Seed synthetic demo data (idempotent)",
-                 expanded=False):
+                 expanded=needs_seed):
+    if needs_seed:
+        st.warning("The `accounts` collection is empty — ingest requests will "
+                   "be rejected with `ACCOUNT_NOT_FOUND` until you seed.")
     st.caption("Creates the synthetic accounts, a few assets, and counters "
                "with upserts only. Never drops or overwrites anything.")
     if st.button("Seed demo data", key="seed"):
@@ -120,7 +126,8 @@ with tab_batch:
                          f"batch-{uuid.uuid4().hex}", cap=b_cap)
         for lineno in bad:
             st.markdown(f"{err_badge('422 MALFORMED_ROW')} · row {lineno} — "
-                        f"missing `tn`; not silently skipped")
+                        f"missing `tn`; not silently skipped",
+                        unsafe_allow_html=True)
         st.session_state["batch_result"] = (res, len(bad))
     if st.session_state.get("batch_result"):
         res, bad = st.session_state["batch_result"]

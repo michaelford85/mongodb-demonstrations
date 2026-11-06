@@ -196,8 +196,10 @@ def _validate_items(db: Database, account_id: str,
     for item in items:
         tn, num_type = item.get("tn", ""), item.get("type", "local")
         if account is None:
-            out.append(ItemResult(tn, num_type, False, NO_SUCH_ACCOUNT,
-                                  f"no account record for {account_id}"))
+            out.append(ItemResult(
+                tn, num_type, False, NO_SUCH_ACCOUNT,
+                f"no account record for {account_id} — seed demo data "
+                f"first (Step 0 on the Ingest page)"))
         elif num_type not in NUMBER_TYPES:
             out.append(ItemResult(tn, num_type, False, BAD_TYPE,
                                   f"type must be one of {sorted(NUMBER_TYPES)}"))
