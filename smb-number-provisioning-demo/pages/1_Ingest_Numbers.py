@@ -31,10 +31,10 @@ demo_scope_note()
 
 
 def run_ingest(account_id: str, items: list[dict], channel: str,
-               idem_key: str) -> BatchResult:
+               idem_key: str, cap: int = DEFAULT_CAP) -> BatchResult:
     from lib.ui import db as cached_db
     return process_ingest(cached_db(), account_id, items, channel,
-                          cap=DEFAULT_CAP, idempotency_key=idem_key)
+                          cap=int(cap), idempotency_key=idem_key)
 
 
 def render_result(res: BatchResult) -> None:
@@ -72,13 +72,16 @@ with tab_portal:
     st.markdown("**Portal-style single entry.** The same service path as the "
                 "other routes — only the channel differs.")
     account = st.text_input("accountId", "ACC-SMB-0001", key="p_account")
-    tn = st.text_input("Telephone number (fictional range +1-555-01xx)",
+    tn = st.text_input("Telephone number (full US format +1 + 10 digits; "
+                       "fictional 555/555 exchange)",
                        FICTIONAL_TNS[5], key="p_tn")
     num_type = st.selectbox("Number type", ["local", "toll_free"], key="p_type")
+    p_cap = st.number_input("Cap for this account", 1, 10_000, DEFAULT_CAP,
+                            key="p_cap")
     if st.button("Submit via portal", key="p_submit"):
         res = run_ingest(account.strip(),
                          [{"tn": tn.strip(), "type": num_type}],
-                         "portal", f"portal-{uuid.uuid4().hex}")
+                         "portal", f"portal-{uuid.uuid4().hex}", cap=p_cap)
         st.session_state["portal_result"] = res
     if st.session_state.get("portal_result"):
         render_result(st.session_state["portal_result"])
@@ -88,11 +91,17 @@ with tab_batch:
                 "every row is reported as accepted or rejected — malformed "
                 "rows are never silently skipped. Rows after the cap is "
                 "reached are rejected.")
+    csv_count = st.number_input("Sample CSV: how many numbers?", 1, 5_000, 6,
+                                key="b_csv_count",
+                                help="Generates sequential numbers from the "
+                                     "fictional 555/555 exchange.")
     sample = "tn,type\n" + "\n".join(
-        f"{t},local" for t in FICTIONAL_TNS[20:26])
+        f"{t},local" for t in FICTIONAL_TNS[100:100 + int(csv_count)])
     st.download_button("Download sample CSV", sample.encode(),
                        "sample_numbers.csv", "text/csv")
     b_account = st.text_input("accountId", "ACC-SMB-0002", key="b_account")
+    b_cap = st.number_input("Cap for this account ", 1, 10_000, DEFAULT_CAP,
+                            key="b_cap")
     up = st.file_uploader("CSV with header `tn,type`", type="csv")
     if up is not None and st.button("Upload batch", key="b_submit"):
         reader = csv.DictReader(io.StringIO(up.getvalue().decode()))
@@ -108,7 +117,7 @@ with tab_batch:
                    + (f"; {len(bad)} malformed row(s) reported below"
                       if bad else ""))
         res = run_ingest(b_account.strip(), items, "batch",
-                         f"batch-{uuid.uuid4().hex}")
+                         f"batch-{uuid.uuid4().hex}", cap=b_cap)
         for lineno in bad:
             st.markdown(f"{err_badge('422 MALFORMED_ROW')} · row {lineno} — "
                         f"missing `tn`; not silently skipped")
@@ -126,6 +135,8 @@ with tab_api:
                 "response reports one result per submitted item, exactly as "
                 "a bulk API would.")
     api_account = st.text_input("accountId ", "ACC-SMB-0002", key="a_account")
+    a_cap = st.number_input("Cap for this account", 1, 10_000, DEFAULT_CAP,
+                            key="a_cap")
     default_payload = json.dumps(
         [{"tn": FICTIONAL_TNS[30], "type": "local"},
          {"tn": FICTIONAL_TNS[20], "type": "local"}], indent=2)
@@ -141,7 +152,8 @@ with tab_api:
             parsed = None
         if parsed is not None:
             res = run_ingest(api_account.strip(), parsed, "direct_api",
-                             f"api-{uuid.uuid4().hex}")
+                             f"api-{uuid.uuid4().hex}", cap=a_cap)
+            st.session_state["api_result"] = res
             st.session_state["api_result"] = res
     if st.session_state.get("api_result"):
         render_result(st.session_state["api_result"])
@@ -153,22 +165,53 @@ with tab_re:
     re_col1, re_col2 = st.columns(2)
     with re_col1:
         st.markdown("**Reactivate** the released number on `ACC-SMB-0002`")
-        if st.button("Reactivate +15550110", key="re_btn"):
+        if st.button("Reactivate +15555550110", key="re_btn"):
             from lib.ui import db as cached_db
             ok, msg = reactivate_number(cached_db(), "ACC-SMB-0002",
-                                        "+15550110", "local")
+                                        "+15555550110", "local")
             (st.success if ok else st.error)(f"{msg}")
             st.caption("Counts as an addition: capacity is reserved first "
                        "and the state moves to `active`.")
     with re_col2:
         st.markdown("**Transfer** a number from `ACC-SMB-0001` to "
                     "`ACC-SMB-0002`")
-        if st.button("Transfer +15550100", key="tf_btn"):
+        if st.button("Transfer +15555550100", key="tf_btn"):
             from lib.ui import db as cached_db
             ok, msg = transfer_number(cached_db(), "ACC-SMB-0001",
-                                      "ACC-SMB-0002", "+15550100", "local")
+                                      "ACC-SMB-0002", "+15555550100", "local")
             (st.success if ok else st.error)(f"{msg}")
             st.caption("Simplification: the transfer is shown as "
-                       "release-and-reserve on the destination; the source "
-                       "counter is not decremented because capacity moved "
-                       "with the number in this single-tenant model.")
+                        "release-and-reserve on the destination; the source "
+                        "counter is not decremented because capacity moved "
+                        "with the number in this single-tenant model.")
+
+with st.expander("🏋️ Stress test — load an account with hundreds of numbers",
+                 expanded=False):
+    st.markdown(
+        "The service-package cap blocks additions past the cap **by design** "
+        f"(default {DEFAULT_CAP}). To stress-test an account with more than "
+        "100 numbers, this panel ingests N synthetic numbers and raises the "
+        "cap for the request accordingly. Batches commit per row (file "
+        "order), so the run is resumable and shows real partial progress.")
+    s_account = st.text_input("Stress-test accountId", "ACC-SMB-0002",
+                              key="s_account")
+    s_count = st.number_input("How many numbers to ingest (in addition to "
+                              "what the account already has)", 1, 5_000, 250,
+                              key="s_count")
+    s_start = st.number_input("Starting fictional number index", 500, 4_900,
+                              1_000, key="s_start",
+                              help="First line number from the fictional "
+                                   "555/555 exchange; skips numbers already "
+                                   "present.")
+    if st.button("Run stress ingestion", key="s_btn"):
+        items = [{"tn": t, "type": "local"} for t in
+                 FICTIONAL_TNS[int(s_start):int(s_start) + int(s_count)]]
+        res = run_ingest(s_account.strip(), items, "batch",
+                         f"stress-{uuid.uuid4().hex}",
+                         cap=DEFAULT_CAP + int(s_count))
+        accepted, rejected = len(res.accepted), len(res.rejected)
+        st.success(f"Stress ingestion finished: {accepted} accepted, "
+                   f"{rejected} rejected (cap was "
+                   f"{DEFAULT_CAP + int(s_count)} for this run).")
+        st.caption("Counter and assets stay consistent — check the Results & "
+                   "audit page for the capacity usage and audit events.")

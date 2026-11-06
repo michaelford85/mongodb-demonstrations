@@ -1,7 +1,7 @@
 """Synthetic seed data — every value here is invented for the demonstration.
 
 Accounts, brands, and telephone numbers are fictional. Telephone numbers are
-drawn from the reserved fictional block +1-555-0100 … +1-555-0199. No real
+drawn from the fictional 555/555 exchange (+1555555xxxx). No real
 company, customer, or personal data is used.
 """
 
@@ -12,8 +12,9 @@ from lib.config import (ACCOUNTS_COLLECTION, NUMBER_ASSETS_COLLECTION,
 from lib.cap_service import (CAP_TYPE, DEFAULT_CAP, TN_PATTERN, _now,
                              get_or_create_counter)
 
-# +1-555-0100 … +1-555-0199 — reserved fictional range
-FICTIONAL_TNS = [f"+155501{n:02d}" for n in range(0, 40)]
+# Full-length fictional US numbers: area code 555, exchange 555 — never
+# assigned to real subscribers. Enough addresses for stress tests.
+FICTIONAL_TNS = [f"+1555555{n:04d}" for n in range(100, 5100)]
 assert all(TN_PATTERN.match(t) for t in FICTIONAL_TNS)
 
 

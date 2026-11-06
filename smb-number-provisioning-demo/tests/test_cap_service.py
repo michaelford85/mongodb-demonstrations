@@ -55,14 +55,14 @@ def asset_count(db, account_id=None):
 # ── validation ─────────────────────────────────────────────────────────────
 
 def test_fictional_range_only():
-    assert valid_tn("+15550100")
+    assert valid_tn("+15555550100")
     assert not valid_tn("+155500001")  # outside the reserved fictional block
     assert not valid_tn("5550100")
-    assert not valid_tn("+1555010")   # wrong length
+    assert not valid_tn("+1555555010")   # wrong length
 
 
 def test_unknown_account_rejects_every_item_without_assets(db):
-    res = process_ingest(db, "ACC-NOPE", [{"tn": "+15550100", "type": "local"}],
+    res = process_ingest(db, "ACC-NOPE", [{"tn": "+15555550100", "type": "local"}],
                          "portal")
     assert res.accepted == [] and res.rejected
     assert res.rejected[0].code == "422 ACCOUNT_NOT_FOUND"
@@ -73,7 +73,7 @@ def test_unknown_account_rejects_every_item_without_assets(db):
 
 def test_invalid_format_and_type_rejected_without_reservation(db):
     items = [{"tn": "bogus", "type": "local"},
-             {"tn": "+15550101", "type": "satellite"}]
+             {"tn": "+15555550101", "type": "satellite"}]
     res = process_ingest(db, "ACC-SMB-0001", items, "portal")
     assert [r.code for r in res.rejected] == [BAD_NUMBER,
                                               "422 INVALID_NUMBER_TYPE"]
@@ -85,7 +85,7 @@ def test_invalid_format_and_type_rejected_without_reservation(db):
 @pytest.mark.parametrize("channel", ["portal", "batch", "direct_api"])
 def test_all_routes_share_one_service(db, channel):
     res = process_ingest(db, "ACC-SMB-0001",
-                         [{"tn": "+15550102", "type": "local"}], channel)
+                         [{"tn": "+15555550102", "type": "local"}], channel)
     assert res.accepted and res.results[0].code == ACCEPTED
     assert asset_count(db, "ACC-SMB-0001") == 1
     assert counter(db, "ACC-SMB-0001") == (1, DEFAULT_CAP)
@@ -93,7 +93,7 @@ def test_all_routes_share_one_service(db, channel):
 
 def test_csv_rows_processed_in_file_order_with_partial_results(db):
     """Rows after the cap is reached are rejected, in order, not skipped."""
-    csv_text = "tn,type\n+15550103,local\n,local\n+15550104,local\n"
+    csv_text = "tn,type\n+15555550103,local\n,local\n+15555550104,local\n"
     import csv as _csv
     rows = list(_csv.DictReader(io.StringIO(csv_text)))
     items = [{"tn": r["tn"], "type": r["type"]} for r in rows if r.get("tn")]
@@ -104,8 +104,8 @@ def test_csv_rows_processed_in_file_order_with_partial_results(db):
     res = process_ingest(db, "ACC-SMB-0001", items, "batch", cap=1)
     accepted = [r.tn for r in res.accepted]
     rejected = [r.tn for r in res.rejected]
-    assert accepted == ["+15550103"]          # first row accepted
-    assert "+15550104" in rejected            # after cap reached → rejected
+    assert accepted == ["+15555550103"]          # first row accepted
+    assert "+15555550104" in rejected            # after cap reached → rejected
     assert counter(db, "ACC-SMB-0001")[0] == 1
     assert asset_count(db, "ACC-SMB-0001") == 1
 
@@ -114,10 +114,10 @@ def test_csv_rows_processed_in_file_order_with_partial_results(db):
 
 def test_duplicate_number_rejected_by_validation(db):
     first = process_ingest(db, "ACC-SMB-0001",
-                           [{"tn": "+15550105", "type": "local"}], "portal")
+                           [{"tn": "+15555550105", "type": "local"}], "portal")
     assert first.accepted
     dup = process_ingest(db, "ACC-SMB-0001",
-                         [{"tn": "+15550105", "type": "local"}], "api")
+                         [{"tn": "+15555550105", "type": "local"}], "api")
     assert dup.rejected and dup.rejected[0].code == DUPLICATE
     assert counter(db, "ACC-SMB-0001")[0] == 1  # no double-count
     assert asset_count(db, "ACC-SMB-0001") == 1
@@ -125,10 +125,10 @@ def test_duplicate_number_rejected_by_validation(db):
 
 def test_same_number_on_different_accounts_is_allowed(db):
     assert process_ingest(db, "ACC-SMB-0001",
-                          [{"tn": "+15550106", "type": "local"}],
+                          [{"tn": "+15555550106", "type": "local"}],
                           "portal").accepted
     assert process_ingest(db, "ACC-SMB-0002",
-                          [{"tn": "+15550106", "type": "local"}],
+                          [{"tn": "+15555550106", "type": "local"}],
                           "portal").accepted
 
 
@@ -137,8 +137,8 @@ def test_same_number_on_different_accounts_is_allowed(db):
 def test_exactly_at_cap_succeeds(db):
     set_counter_for_demo(db, "ACC-SMB-0001", 98, 100)
     res = process_ingest(db, "ACC-SMB-0001",
-                         [{"tn": "+15550107", "type": "local"},
-                          {"tn": "+15550108", "type": "local"}], "batch")
+                         [{"tn": "+15555550107", "type": "local"},
+                          {"tn": "+15555550108", "type": "local"}], "batch")
     assert len(res.accepted) == 2
     assert counter(db, "ACC-SMB-0001")[0] == 100
 
@@ -146,8 +146,8 @@ def test_exactly_at_cap_succeeds(db):
 def test_over_cap_rejected_no_asset_saved_audited(db):
     set_counter_for_demo(db, "ACC-SMB-0001", 99, 100)
     res = process_ingest(db, "ACC-SMB-0001",
-                         [{"tn": "+15550107", "type": "local"},
-                          {"tn": "+15550108", "type": "local"}], "api")
+                         [{"tn": "+15555550107", "type": "local"},
+                          {"tn": "+15555550108", "type": "local"}], "api")
     assert all(not r.ok for r in res.results)
     assert all(r.code == CAP_EXCEEDED for r in res.results)
     assert asset_count(db, "ACC-SMB-0001") == 0
@@ -165,7 +165,7 @@ def test_race_99_of_100_exactly_one_success(db):
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(
             lambda i: process_ingest(db, "ACC-SMB-RACE",
-                                     [{"tn": f"+155501{i:02d}",
+                                     [{"tn": f"+155555501{i:02d}",
                                        "type": "local"}], f"race-{i}"),
             range(10, 12)))
     successes = sum(len(r.accepted) for r in results)
@@ -174,7 +174,7 @@ def test_race_99_of_100_exactly_one_success(db):
     assert counter(db, "ACC-SMB-RACE")[0] == 100
     assert asset_count(db, "ACC-SMB-RACE") == 1
     rejected_assets = db["numberAssets"].count_documents(
-        {"accountId": "ACC-SMB-RACE", "tn.orig.startTn": "+15550111"})
+        {"accountId": "ACC-SMB-RACE", "tn.orig.startTn": "+15555550111"})
     assert rejected_assets == 0  # nothing saved for the rejected request
 
 
@@ -183,10 +183,10 @@ def test_race_99_of_100_exactly_one_success(db):
 def test_idempotent_retry_does_not_double_count(db):
     key = "idem-fixed-key"
     first = process_ingest(db, "ACC-SMB-0001",
-                           [{"tn": "+15550109", "type": "local"}], "portal",
+                           [{"tn": "+15555550109", "type": "local"}], "portal",
                            idempotency_key=key)
     second = process_ingest(db, "ACC-SMB-0001",
-                            [{"tn": "+15550109", "type": "local"}], "portal",
+                            [{"tn": "+15555550109", "type": "local"}], "portal",
                             idempotency_key=key)
     assert first.accepted and second.accepted and second.replayed
     assert asset_count(db, "ACC-SMB-0001") == 1
@@ -197,12 +197,12 @@ def test_idempotent_retry_does_not_double_count(db):
 
 def test_removal_frees_capacity_exactly_once(db):
     process_ingest(db, "ACC-SMB-0001",
-                   [{"tn": "+15550110", "type": "local"}], "portal")
+                   [{"tn": "+15555550110", "type": "local"}], "portal")
     assert counter(db, "ACC-SMB-0001")[0] == 1
-    ok, _ = remove_number(db, "ACC-SMB-0001", "+15550110")
+    ok, _ = remove_number(db, "ACC-SMB-0001", "+15555550110")
     assert ok and counter(db, "ACC-SMB-0001")[0] == 0
     # Removing again must not decrement twice.
-    ok2, _ = remove_number(db, "ACC-SMB-0001", "+15550110")
+    ok2, _ = remove_number(db, "ACC-SMB-0001", "+15555550110")
     assert ok2 and counter(db, "ACC-SMB-0001")[0] == 0
 
 
@@ -210,31 +210,31 @@ def test_reactivation_counts_as_addition(db):
     # A released asset exists (synthetic seed shape) on ACC-SMB-0002.
     db["numberAssets"].insert_one({
         "accountId": "ACC-SMB-0002", "type": "local", "state": "released",
-        "tn": {"orig": {"start": "+15550110", "count": 1,
-                        "startTn": "+15550110", "endTn": "+15550110"}},
+        "tn": {"orig": {"start": "+15555550110", "count": 1,
+                        "startTn": "+15555550110", "endTn": "+15555550110"}},
         "note": "synthetic demo data"})
-    ok, _ = reactivate_number(db, "ACC-SMB-0002", "+15550110")
+    ok, _ = reactivate_number(db, "ACC-SMB-0002", "+15555550110")
     assert ok and counter(db, "ACC-SMB-0002")[0] == 1
 
 
 def test_transfer_counts_as_addition_on_destination(db):
     process_ingest(db, "ACC-SMB-0001",
-                   [{"tn": "+15550111", "type": "local"}], "portal")
-    ok, _ = transfer_number(db, "ACC-SMB-0001", "ACC-SMB-0002", "+15550111")
+                   [{"tn": "+15555550111", "type": "local"}], "portal")
+    ok, _ = transfer_number(db, "ACC-SMB-0001", "ACC-SMB-0002", "+15555550111")
     assert ok
     assert counter(db, "ACC-SMB-0002")[0] == 1
-    moved = db["numberAssets"].find_one({"tn.orig.startTn": "+15550111"})
+    moved = db["numberAssets"].find_one({"tn.orig.startTn": "+15555550111"})
     assert moved["accountId"] == "ACC-SMB-0002"
 
 
 def test_transfer_over_cap_rejected_number_stays_on_source(db):
     process_ingest(db, "ACC-SMB-0001",
-                   [{"tn": "+15550112", "type": "local"}], "portal")
+                   [{"tn": "+15555550112", "type": "local"}], "portal")
     set_counter_for_demo(db, "ACC-SMB-0002", 100, 100)  # destination is full
     ok, msg = transfer_number(db, "ACC-SMB-0001", "ACC-SMB-0002",
-                              "+15550112")
+                              "+15555550112")
     assert not ok and msg == CAP_EXCEEDED
-    moved = db["numberAssets"].find_one({"tn.orig.startTn": "+15550112"})
+    moved = db["numberAssets"].find_one({"tn.orig.startTn": "+15555550112"})
     assert moved["accountId"] == "ACC-SMB-0001"          # stayed on source
     assert counter(db, "ACC-SMB-0002")[0] == 100         # refunded, not 101
 
@@ -244,22 +244,22 @@ def test_transfer_over_cap_rejected_number_stays_on_source(db):
 def test_cap_lowered_below_usage_keeps_assets_blocks_additions(db):
     for i in range(3):
         assert process_ingest(db, "ACC-SMB-0001",
-                              [{"tn": f"+1555012{i}", "type": "local"}],
+                              [{"tn": f"+1555555012{i}", "type": "local"}],
                               "portal").accepted
     lower_cap(db, "ACC-SMB-0001", 2)
     assert counter(db, "ACC-SMB-0001") == (3, 2)   # existing numbers kept
     res = process_ingest(db, "ACC-SMB-0001",
-                         [{"tn": "+15550123", "type": "local"}],
+                         [{"tn": "+15555550123", "type": "local"}],
                          "portal", cap=2)
     assert res.rejected and res.rejected[0].code == CAP_EXCEEDED
     assert asset_count(db, "ACC-SMB-0001") == 3    # nothing deleted
     # Freeing numbers unblocks additions once usage is below the cap.
-    ok, _ = remove_number(db, "ACC-SMB-0001", "+15550120")
+    ok, _ = remove_number(db, "ACC-SMB-0001", "+15555550120")
     assert ok
-    ok, _ = remove_number(db, "ACC-SMB-0001", "+15550121")
+    ok, _ = remove_number(db, "ACC-SMB-0001", "+15555550121")
     assert ok
     res2 = process_ingest(db, "ACC-SMB-0001",
-                          [{"tn": "+15550123", "type": "local"}],
+                          [{"tn": "+15555550123", "type": "local"}],
                           "portal", cap=2)
     assert res2.accepted
     assert res2.accepted
@@ -269,8 +269,8 @@ def test_cap_lowered_below_usage_keeps_assets_blocks_additions(db):
 
 def test_counter_matches_counted_assets(db):
     process_ingest(db, "ACC-SMB-0001",
-                   [{"tn": "+15550114", "type": "local"},
-                    {"tn": "+15550115", "type": "local"}], "batch")
+                   [{"tn": "+15555550114", "type": "local"},
+                    {"tn": "+15555550115", "type": "local"}], "batch")
     counted = db["numberAssets"].count_documents(
         {"accountId": "ACC-SMB-0001",
          "state": {"$in": sorted(states_counting_toward_cap())}})

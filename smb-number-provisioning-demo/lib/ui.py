@@ -32,7 +32,7 @@ def err_badge(text: str) -> str:
 def synthetic_note() -> None:
     st.caption("🧪 Synthetic demo data — every account, brand, and telephone "
                "number here was invented for this demonstration (numbers use "
-               "the reserved fictional range +1-555-01xx). No real customer "
+               "the reserved fictional range +1555555xxxx (fictional 555/555 exchange)). No real customer "
                "or personal data.")
 
 

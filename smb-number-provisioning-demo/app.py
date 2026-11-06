@@ -5,7 +5,7 @@ flow: three entry routes, one shared validation + cap-enforcement service,
 atomic per-account capacity, and an audit trail.
 
 Every account, brand, and telephone number in this demo is synthetic
-(numbers come from the reserved fictional range +1-555-01xx). All reads and
+(numbers come from the reserved fictional range +1555555xxxx (fictional 555/555 exchange)). All reads and
 writes are confined to the dedicated demo database named in the page header.
 
     streamlit run app.py

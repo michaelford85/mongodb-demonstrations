@@ -69,8 +69,9 @@ BAD_STATE = "422 INVALID_STATE_TRANSITION"
 ACCEPTED = "202 ACCEPTED"
 
 NUMBER_TYPES = {"local", "toll_free"}
-# Fictional-only range: +1-555-0100 … +1-555-0199 (reserved fictional block).
-TN_PATTERN = re.compile(r"^\+155501\d{2}$")
+# Full-length fictional US numbers: E.164 `+1` + 10 digits, using area code
+# 555 and exchange 555 — a range never assigned to real subscribers.
+TN_PATTERN = re.compile(r"^\+1555555\d{4}$")
 
 
 @dataclass
@@ -202,7 +203,7 @@ def _validate_items(db: Database, account_id: str,
                                   f"type must be one of {sorted(NUMBER_TYPES)}"))
         elif not valid_tn(tn):
             out.append(ItemResult(tn, num_type, False, BAD_NUMBER,
-                                  "use the fictional range +1-555-01xx"))
+                                  "use the fictional range +1555555xxxx (fictional 555/555 exchange)"))
         elif db[NUMBER_ASSETS_COLLECTION].find_one(
                 {"accountId": account_id, "tn.orig.startTn": tn,
                  "type": num_type}):

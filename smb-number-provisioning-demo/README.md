@@ -9,7 +9,7 @@ per-account capacity enforced by an atomic conditional counter update and a
 
 Everything here is **synthetic demo data**: brands, accounts, and telephone
 numbers are invented (numbers use the reserved fictional range
-`+1-555-0100 … +1-555-0199`). No real company, customer, or personal data is
+`+1 (555) 555-xxxx`). No real company, customer, or personal data is
 used, and the demo performs **no real verification or vetting** — vetting is
 shown as a conceptual step only.
 

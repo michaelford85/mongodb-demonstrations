@@ -50,9 +50,9 @@ json_block("`numberAssets` — one telephone-number asset per document", {
     "superAccountId": "ACC-ENT-0001",       # ✅ optional
     "type": "local",                        # ✅
     "state": "active",                      # ✅
-    "tn": {"orig": {"start": "+155550100",  # ✅ tn.orig subdocument
-                    "count": 1, "startTn": "+155550100",
-                    "endTn": "+155550100"}},
+    "tn": {"orig": {"start": "+15555550100",  # ✅ tn.orig subdocument
+                    "count": 1, "startTn": "+15555550100",
+                    "endTn": "+15555550100"}},
     "callerProfileId": "cp-seed000",        # ✅ representative
     "partnerData": {"synthetic": True},     # ✅ partner-interaction data
     "vetting": {"status": "not_verified_demo_only"},  # ✅ conceptual only

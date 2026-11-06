@@ -78,7 +78,7 @@ with c2:
                 "once. States that count toward the cap: "
                 f"`{sorted(states_counting_toward_cap())}`.")
     r_acc = st.text_input("Account ", "ACC-SMB-0001", key="rm_account")
-    r_tn = st.text_input("Number", "+155550100", key="rm_tn")
+    r_tn = st.text_input("Number", "+15555550100", key="rm_tn")
     if st.button("Remove number", key="rm_btn"):
         ok, msg = remove_number(get_db(), r_acc.strip(), r_tn.strip())
         (st.success if ok else st.warning)(msg)
