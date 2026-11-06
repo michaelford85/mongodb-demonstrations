@@ -22,6 +22,7 @@ def account_docs() -> list[dict]:
     return [
         {
             "accountId": "ACC-SMB-0001", "name": "Bright Harbor Dental",
+            "accountType": "smb",
             "parentAccount": "ACC-ENT-0042", "superAccount": "ACC-ENT-0001",
             "featureData": {"brandedCalling": True, "logoRef": "synthetic-logo-1"},
             "serviceData": {"servicePackage": {"packageId": "PKG-SMB-100",
@@ -34,6 +35,7 @@ def account_docs() -> list[dict]:
         },
         {
             "accountId": "ACC-SMB-0002", "name": "Cedar & Sloe Coffee",
+            "accountType": "smb",
             "parentAccount": None, "superAccount": None,
             "featureData": {"brandedCalling": False, "logoRef": None},
             "serviceData": {"servicePackage": {"packageId": "PKG-SMB-100",
@@ -46,6 +48,7 @@ def account_docs() -> list[dict]:
         },
         {
             "accountId": "ACC-ENT-0042", "name": "Northwind Retail Group",
+            "accountType": "enterprise",
             "parentAccount": "ACC-ENT-0001", "superAccount": None,
             "featureData": {"brandedCalling": True, "logoRef": "synthetic-logo-2"},
             "serviceData": {"servicePackage": {"packageId": "PKG-ENT-5000",
@@ -57,7 +60,20 @@ def account_docs() -> list[dict]:
             "note": "synthetic demo data",
         },
         {
+            "accountId": "ACC-ENT-0001", "name": "Meridian Holdings",
+            "accountType": "enterprise",
+            "parentAccount": None, "superAccount": None,
+            "featureData": {"brandedCalling": True, "logoRef": "synthetic-logo-3"},
+            "serviceData": {},   # legacy enterprise: no service package,
+                                 # flows through the current (uncapped) path
+            "billing": {"tier": "legacy", "currency": "USD",
+                        "synthetic": True},
+            "vetting": {"status": "not_verified_demo_only"},
+            "note": "synthetic demo data",
+        },
+        {
             "accountId": RACE_ACCOUNT_ID, "name": "Race Rehearsal Account",
+            "accountType": "smb",
             "parentAccount": None, "superAccount": None,
             "featureData": {"brandedCalling": False, "logoRef": None},
             "serviceData": {"servicePackage": {"packageId": "PKG-SMB-100",
@@ -114,8 +130,9 @@ def seed_demo(db) -> dict:
              doc["tn"]["orig"]["startTn"], "type": doc["type"]},
             {"$setOnInsert": doc}, upsert=True)
     for acc in account_docs():
-        get_or_create_counter(db, acc["accountId"],
-                              acc["serviceData"]["servicePackage"]["cap"])
+        package = acc["serviceData"].get("servicePackage")
+        if package:  # accounts without a package skip the capped path
+            get_or_create_counter(db, acc["accountId"], package["cap"])
     return {"accounts": len(account_docs()),
             "assets": len(existing_asset_docs()), "at": _now().isoformat()}
 

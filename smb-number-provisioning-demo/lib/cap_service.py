@@ -231,22 +231,32 @@ def _validate_items(db: Database, account_id: str,
     return out
 
 
+def has_service_package(db: Database, account_id: str) -> bool:
+    """Accounts WITH a service package take the capped provisioning path;
+    accounts without one continue through the current (uncapped) flow."""
+    account = db[ACCOUNTS_COLLECTION].find_one(
+        {"accountId": account_id}, {"serviceData.servicePackage": 1}) or {}
+    return bool(account.get("serviceData", {}).get("servicePackage"))
+
+
 def _txn_body(db: Database, session, account_id: str, channel: str,
               idem_key: str, validated: list[ItemResult],
-              result: BatchResult) -> None:
+              result: BatchResult, capped: bool = True) -> None:
     """Transaction body: reserve, insert assets, audit — all or nothing."""
     n = len(validated)
-    cap = get_or_create_counter(db, account_id, DEFAULT_CAP)["cap"]
-    if n and not db[COUNTERS_COLLECTION].update_one(
-            {"accountId": account_id, "capType": CAP_TYPE,
-             "activeCount": {"$lte": cap - n}},
-            {"$inc": {"activeCount": n}, "$set": {"updatedAt": _now()}},
-            session=session).matched_count:
-        for v in validated:
-            v.ok, v.code, v.detail = False, CAP_EXCEEDED, "atomic reservation refused"
-        _audit(db, "PROVISIONING_REJECTED", account_id, n, CAP_EXCEEDED,
-               channel, idem_key, "cap exceeded")
-        return
+    if capped and n:
+        cap = get_or_create_counter(db, account_id, DEFAULT_CAP)["cap"]
+        if not db[COUNTERS_COLLECTION].update_one(
+                {"accountId": account_id, "capType": CAP_TYPE,
+                 "activeCount": {"$lte": cap - n}},
+                {"$inc": {"activeCount": n}, "$set": {"updatedAt": _now()}},
+                session=session).matched_count:
+            for v in validated:
+                v.ok, v.code = False, CAP_EXCEEDED
+                v.detail = "atomic reservation refused"
+            _audit(db, "PROVISIONING_REJECTED", account_id, n, CAP_EXCEEDED,
+                   channel, idem_key, "cap exceeded")
+            return
     for v in validated:
         _insert_asset(db, account_id, {"tn": v.tn, "type": v.number_type},
                       channel, idem_key)
@@ -291,6 +301,8 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
                channel, idem_key, "empty request")
         return result
 
+    capped = has_service_package(db, account_id)
+
     validated = _validate_items(db, account_id, items)
     result.results.extend(validated)
     good = [v for v in validated if v.ok]
@@ -305,7 +317,7 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
             with db.client.start_session() as session:
                 session.start_transaction()
                 _txn_body(db, session, account_id, channel, idem_key,
-                          good, result)
+                          good, result, capped=capped)
                 session.commit_transaction()
                 result.used_transactions = True
             return result
@@ -324,7 +336,7 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
     # documented as such in the UI and README). Batch requests process rows
     # in file order so later rows can be rejected individually; other
     # channels reserve for the whole request first (atomic per request).
-    if channel != "batch":
+    if channel != "batch" and capped:
         if not _reserve(db, account_id, len(good)):
             for v in good:
                 v.ok, v.code, v.detail = False, CAP_EXCEEDED, "cap exceeded"
@@ -339,7 +351,7 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
             v.ok, v.code, v.detail = False, CAP_EXCEEDED, \
                 "cap reached earlier in the batch"
             continue
-        if channel == "batch" and not _reserve(db, account_id, 1):
+        if channel == "batch" and capped and not _reserve(db, account_id, 1):
             cap_blocked = True
             v.ok, v.code, v.detail = False, CAP_EXCEEDED, "cap exceeded"
             continue

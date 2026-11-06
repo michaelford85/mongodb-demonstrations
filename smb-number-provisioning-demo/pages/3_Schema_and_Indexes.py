@@ -85,6 +85,40 @@ st.markdown("The exact set of number states that count toward the cap lives "
             "`released` or `removed` do **not** consume capacity. Do not "
             "assume every state counts as active.")
 
+st.markdown("### Schema validation — fields forced by account type")
+st.markdown(
+    "SMB and non-SMB accounts live in the **same collection**; an "
+    "`accountType` field (`smb` | `enterprise`) drives segment-specific "
+    "enforcement via a `$jsonSchema` validator: every account needs "
+    "`accountId`, `name`, and `accountType`; an **SMB** account **must** "
+    "carry a service package (`serviceData.servicePackage` with `packageId`, "
+    "`capType`, and a numeric `cap` ≥ 1); an **enterprise** account may omit "
+    "the package and flow through the current (uncapped) path. The service "
+    "enforces caps only for accounts with a package.")
+import json as _json
+from lib.schema_validation import ACCOUNT_VALIDATOR, apply_account_validator
+st.code(_json.dumps(ACCOUNT_VALIDATOR["$jsonSchema"], indent=2),
+        language="javascript")
+from lib.config import ACCOUNTS_COLLECTION, get_db
+if st.button("Apply validator to the demo `accounts` collection",
+             key="apply_validator_btn"):
+    handle = get_db()
+    if ACCOUNTS_COLLECTION not in handle.list_collection_names():
+        st.caption("Collection does not exist yet — press **Seed demo data** "
+                   "on the Ingest page first (creating an empty collection "
+                   "here would also work, but seeding keeps flows realistic).")
+    else:
+        info = apply_account_validator(handle)
+        st.success(f"Validator installed on `{info['collection']}` "
+                   f"(validationAction=`{info['validationAction']}`). "
+                   f"Server-side enforcement is now active on inserts and "
+                   f"updates.")
+st.caption("🔶 Demo/design recommendation discussed in the walkthrough: the "
+           "`accountType` marker and validator are proposed additions; the "
+           "presence of a service package is the confirmed discriminator for "
+           "the capped provisioning path. Try inserting an SMB account "
+           "without a package after applying it — the server rejects it.")
+
 st.markdown("### Confirmed vs. proposed — at a glance")
 rows = [
     ("Cap is per account record (unique `accountId`)", "✅ confirmed"),

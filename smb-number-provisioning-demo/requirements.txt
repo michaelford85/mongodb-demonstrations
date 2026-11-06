@@ -3,3 +3,4 @@ pymongo>=4.7.0
 python-dotenv>=1.0.0
 pytest>=8.0.0
 mongomock>=4.1.2  # tests only: in-memory MongoDB stand-in, no cluster needed
+jsonschema>=4.20.0  # tests only: offline validation of the account schema

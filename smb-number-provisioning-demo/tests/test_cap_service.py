@@ -15,30 +15,17 @@ import io
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-import mongomock
 import pytest
 
-from lib.cap_service import (ACCEPTED, BAD_NUMBER, CAP_EXCEEDED, CAP_TYPE,
-                             DUPLICATE, DEFAULT_CAP, get_or_create_counter,
+from lib.cap_service import (ACCEPTED, BAD_NUMBER, CAP_EXCEEDED, CAP_TYPE,                             DUPLICATE, DEFAULT_CAP, get_or_create_counter,
                              lower_cap, process_ingest, reactivate_number,
                              remove_number, set_counter_for_demo,
                              states_counting_toward_cap, transfer_number,
                              valid_tn)
-from lib.sample_data import account_docs, seed_demo
+from lib.sample_data import seed_demo
 
 
-@pytest.fixture()
-def db():
-    client = mongomock.MongoClient()
-    database = client["smb_number_demo"]
-    database["numberAssets"].create_index(
-        [("accountId", 1), ("tn.orig.startTn", 1), ("type", 1)],
-        unique=True)
-    database["provisioningCounters"].create_index(
-        [("accountId", 1), ("capType", 1)], unique=True)
-    for doc in account_docs():
-        database["accounts"].insert_one(dict(doc))
-    return database
+# `db` fixture: shared in-memory mongomock database, defined in conftest.py
 
 
 def counter(db, account_id):
@@ -305,7 +292,7 @@ def test_seed_is_idempotent(db):
     from lib.sample_data import seed_demo as seed
     seed(db)
     seed(db)
-    assert db["accounts"].count_documents({}) == 4
+    assert db["accounts"].count_documents({}) == 5
     assert db["numberAssets"].count_documents({}) == 4
 
 
@@ -317,10 +304,10 @@ def test_reset_from_scratch_removes_all_demo_records(db):
                           "portal").accepted
     # A pre-fix counter doc (no note marker) must also be caught.
     removed = reset_demo_records(db)
-    assert removed["accounts"] == 4 and removed["provisioningCounters"] >= 1
+    assert removed["accounts"] == 5 and removed["provisioningCounters"] >= 1
     for coll in ("accounts", "numberAssets", "provisioningCounters",
                  "provisioningAudit"):
         assert db[coll].count_documents({}) == 0, coll
     # And the demo is re-seedable afterwards.
     seed(db)
-    assert db["accounts"].count_documents({}) == 4
+    assert db["accounts"].count_documents({}) == 5

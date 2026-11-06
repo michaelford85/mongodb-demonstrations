@@ -113,6 +113,15 @@ updateOne(
   standalone deployment the demo falls back to reservation-first with
   compensation (refunds on failed inserts) — documented in the UI as a
   **non-atomic** fallback with the counter as the reconciliation anchor.
+- **Accounts without a service package skip the capped path** — cap
+  enforcement applies only to accounts carrying
+  `serviceData.servicePackage` (alignment decision from the walkthrough).
+- **Schema validation by account type:** an optional `$jsonSchema` validator
+  for `accounts` (Schema & indexes page, apply behind a button) requires
+  `accountId`/`name`/`accountType` on every account and forces SMB accounts
+  (`accountType: "smb"`) to carry a complete service package
+  (`packageId`, `capType`, numeric `cap` ≥ 1). Enterprise accounts may omit
+  the package. Marked as a demo/design recommendation.
 
 ## Tests
 
