@@ -144,9 +144,22 @@ def get_or_create_counter(db: Database, account_id: str, cap: int) -> dict:
     return doc
 
 
-def _reserve(db: Database, account_id: str, n: int, cap: int) -> bool:
-    """THE atomic cap guard. One conditional update; no read-then-write."""
+def set_cap(db: Database, account_id: str, cap: int) -> dict | None:
+    """Set the account-level cap on the counter document (the single source
+    of truth for enforcement). Lowering below usage keeps existing numbers
+    and blocks new additions until usage falls below the cap."""
     get_or_create_counter(db, account_id, cap)
+    return db[COUNTERS_COLLECTION].find_one_and_update(
+        {"accountId": account_id, "capType": CAP_TYPE},
+        {"$set": {"cap": cap, "updatedAt": _now()}},
+        return_document=ReturnDocument.AFTER)
+
+
+def _reserve(db: Database, account_id: str, n: int) -> bool:
+    """THE atomic cap guard. One conditional update on activeCount; the cap
+    is read from the account's counter document (config, not count). No
+    read-then-write on the count itself."""
+    cap = get_or_create_counter(db, account_id, DEFAULT_CAP)["cap"]
     res = db[COUNTERS_COLLECTION].update_one(
         {"accountId": account_id, "capType": CAP_TYPE,
          "activeCount": {"$lte": cap - n}},
@@ -217,10 +230,11 @@ def _validate_items(db: Database, account_id: str,
 
 
 def _txn_body(db: Database, session, account_id: str, channel: str,
-              idem_key: str, cap: int, validated: list[ItemResult],
+              idem_key: str, validated: list[ItemResult],
               result: BatchResult) -> None:
     """Transaction body: reserve, insert assets, audit — all or nothing."""
     n = len(validated)
+    cap = get_or_create_counter(db, account_id, DEFAULT_CAP)["cap"]
     if n and not db[COUNTERS_COLLECTION].update_one(
             {"accountId": account_id, "capType": CAP_TYPE,
              "activeCount": {"$lte": cap - n}},
@@ -240,9 +254,11 @@ def _txn_body(db: Database, session, account_id: str, channel: str,
 
 
 def process_ingest(db: Database, account_id: str, items: list[dict],
-                   channel: str, cap: int = DEFAULT_CAP,
+                   channel: str,
                    idempotency_key: str | None = None) -> BatchResult:
-    """The one ingestion path for portal, batch, and direct-API entry."""
+    """The one ingestion path for portal, batch, and direct-API entry.
+    Cap enforcement always uses the cap stored on the account's counter
+    document — requests never carry their own cap."""
     idem_key = idempotency_key or f"idem-{uuid.uuid4().hex}"
     result = BatchResult(account_id, channel, idem_key)
 
@@ -286,7 +302,7 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
         try:
             with db.client.start_session() as session:
                 session.start_transaction()
-                _txn_body(db, session, account_id, channel, idem_key, cap,
+                _txn_body(db, session, account_id, channel, idem_key,
                           good, result)
                 session.commit_transaction()
                 result.used_transactions = True
@@ -307,7 +323,7 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
     # in file order so later rows can be rejected individually; other
     # channels reserve for the whole request first (atomic per request).
     if channel != "batch":
-        if not _reserve(db, account_id, len(good), cap):
+        if not _reserve(db, account_id, len(good)):
             for v in good:
                 v.ok, v.code, v.detail = False, CAP_EXCEEDED, "cap exceeded"
             _audit(db, "PROVISIONING_REJECTED", account_id, len(good),
@@ -321,7 +337,7 @@ def process_ingest(db: Database, account_id: str, items: list[dict],
             v.ok, v.code, v.detail = False, CAP_EXCEEDED, \
                 "cap reached earlier in the batch"
             continue
-        if channel == "batch" and not _reserve(db, account_id, 1, cap):
+        if channel == "batch" and not _reserve(db, account_id, 1):
             cap_blocked = True
             v.ok, v.code, v.detail = False, CAP_EXCEEDED, "cap exceeded"
             continue
@@ -369,9 +385,9 @@ def remove_number(db: Database, account_id: str, tn: str,
 
 def reactivate_number(db: Database, account_id: str, tn: str,
                       number_type: str = "local",
-                      cap: int = DEFAULT_CAP) -> tuple[bool, str]:
+                      ) -> tuple[bool, str]:
     """Reactivation counts as an addition: reserve capacity first."""
-    if not _reserve(db, account_id, 1, cap):
+    if not _reserve(db, account_id, 1):
         _audit(db, "PROVISIONING_REJECTED", account_id, 1, CAP_EXCEEDED,
                "reactivation", f"react-{uuid.uuid4().hex[:8]}",
                "reactivation would exceed cap")
@@ -388,10 +404,10 @@ def reactivate_number(db: Database, account_id: str, tn: str,
 
 def transfer_number(db: Database, source_account: str, dest_account: str,
                     tn: str, number_type: str = "local",
-                    cap: int = DEFAULT_CAP) -> tuple[bool, str]:
+                    ) -> tuple[bool, str]:
     """Transfer = remove on source + addition (reservation) on destination.
     If the destination reservation fails, the asset stays on the source."""
-    if not _reserve(db, dest_account, 1, cap):
+    if not _reserve(db, dest_account, 1):
         _audit(db, "PROVISIONING_REJECTED", dest_account, 1, CAP_EXCEEDED,
                "transfer", f"xfer-{uuid.uuid4().hex[:8]}",
                f"transfer from {source_account} would exceed cap")
@@ -407,10 +423,7 @@ def transfer_number(db: Database, source_account: str, dest_account: str,
     return True, "transferred; capacity reserved on the destination account"
 
 
-def lower_cap(db: Database, account_id: str, new_cap: int) -> dict:
+def lower_cap(db: Database, account_id: str, new_cap: int) -> dict | None:
     """Lower the cap below current usage: existing numbers are kept, new
     additions are blocked until usage falls below the cap."""
-    return db[COUNTERS_COLLECTION].find_one_and_update(
-        {"accountId": account_id, "capType": CAP_TYPE},
-        {"$set": {"cap": new_cap, "updatedAt": _now()}},
-        return_document=ReturnDocument.AFTER)
+    return set_cap(db, account_id, new_cap)

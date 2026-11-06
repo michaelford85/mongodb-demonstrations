@@ -13,7 +13,8 @@ import streamlit as st
 
 from lib.cap_service import (DEFAULT_CAP, BatchResult, process_ingest,
                              reactivate_number, transfer_number)
-from lib.config import ACCOUNTS_COLLECTION, RACE_ACCOUNT_ID
+from lib.config import (ACCOUNTS_COLLECTION, COUNTERS_COLLECTION,
+                        RACE_ACCOUNT_ID)
 from lib.sample_data import FICTIONAL_TNS, seed_demo
 from lib.ui import (connection_guard, demo_scope_note, err_badge, ok_badge,
                     synthetic_note)
@@ -33,10 +34,18 @@ synthetic_note()
 demo_scope_note()
 
 
+def cap_pill(account_id: str, key: str) -> None:
+    """Show the account's stored cap — enforcement always uses this doc."""
+    from lib.cap_service import get_or_create_counter
+    doc = get_or_create_counter(cached_db(), account_id, DEFAULT_CAP)
+    st.metric("Enforced cap (stored on the counter document)",
+              f"{doc['activeCount']} / {doc['cap']}")
+
+
 def run_ingest(account_id: str, items: list[dict], channel: str,
-               idem_key: str, cap: int = DEFAULT_CAP) -> BatchResult:
+               idem_key: str) -> BatchResult:
     return process_ingest(cached_db(), account_id, items, channel,
-                          cap=int(cap), idempotency_key=idem_key)
+                          idempotency_key=idem_key)
 
 
 def render_result(res: BatchResult) -> None:
@@ -82,12 +91,11 @@ with tab_portal:
                        "fictional 555/555 exchange)",
                        FICTIONAL_TNS[5], key="p_tn")
     num_type = st.selectbox("Number type", ["local", "toll_free"], key="p_type")
-    p_cap = st.number_input("Cap for this account", 1, 10_000, DEFAULT_CAP,
-                            key="p_cap")
+    cap_pill(account.strip(), "p")
     if st.button("Submit via portal", key="p_submit"):
         res = run_ingest(account.strip(),
                          [{"tn": tn.strip(), "type": num_type}],
-                         "portal", f"portal-{uuid.uuid4().hex}", cap=p_cap)
+                         "portal", f"portal-{uuid.uuid4().hex}")
         st.session_state["portal_result"] = res
     if st.session_state.get("portal_result"):
         render_result(st.session_state["portal_result"])
@@ -106,8 +114,7 @@ with tab_batch:
     st.download_button("Download sample CSV", sample.encode(),
                        "sample_numbers.csv", "text/csv")
     b_account = st.text_input("accountId", "ACC-SMB-0002", key="b_account")
-    b_cap = st.number_input("Cap for this account ", 1, 10_000, DEFAULT_CAP,
-                            key="b_cap")
+    cap_pill(b_account.strip(), "b")
     up = st.file_uploader("CSV with header `tn,type`", type="csv")
     if up is not None and st.button("Upload batch", key="b_submit"):
         reader = csv.DictReader(io.StringIO(up.getvalue().decode()))
@@ -123,7 +130,7 @@ with tab_batch:
                    + (f"; {len(bad)} malformed row(s) reported below"
                       if bad else ""))
         res = run_ingest(b_account.strip(), items, "batch",
-                         f"batch-{uuid.uuid4().hex}", cap=b_cap)
+                         f"batch-{uuid.uuid4().hex}")
         for lineno in bad:
             st.markdown(f"{err_badge('422 MALFORMED_ROW')} · row {lineno} — "
                         f"missing `tn`; not silently skipped",
@@ -142,8 +149,6 @@ with tab_api:
                 "response reports one result per submitted item, exactly as "
                 "a bulk API would.")
     api_account = st.text_input("accountId ", "ACC-SMB-0002", key="a_account")
-    a_cap = st.number_input("Cap for this account", 1, 10_000, DEFAULT_CAP,
-                            key="a_cap")
     default_payload = json.dumps(
         [{"tn": FICTIONAL_TNS[30], "type": "local"},
          {"tn": FICTIONAL_TNS[20], "type": "local"}], indent=2)
@@ -158,8 +163,9 @@ with tab_api:
                      "objects. Each item gets a visible result.")
             parsed = None
         if parsed is not None:
+            cap_pill(api_account.strip(), "a")
             res = run_ingest(api_account.strip(), parsed, "direct_api",
-                             f"api-{uuid.uuid4().hex}", cap=a_cap)
+                             f"api-{uuid.uuid4().hex}")
             st.session_state["api_result"] = res
             st.session_state["api_result"] = res
     if st.session_state.get("api_result"):
@@ -211,14 +217,19 @@ with st.expander("🏋️ Stress test — load an account with hundreds of numbe
                                    "555/555 exchange; skips numbers already "
                                    "present.")
     if st.button("Run stress ingestion", key="s_btn"):
+        from lib.cap_service import get_or_create_counter, set_cap
+        counter_doc = get_or_create_counter(cached_db(), s_account.strip(),
+                                            DEFAULT_CAP)
+        target = int(counter_doc["activeCount"]) + int(s_count)
+        set_cap(cached_db(), s_account.strip(), target)
+        st.caption(f"Raised the account's stored cap to {target} "
+                   f"(usage {counter_doc['activeCount']} + {s_count}).")
         items = [{"tn": t, "type": "local"} for t in
                  FICTIONAL_TNS[int(s_start):int(s_start) + int(s_count)]]
         res = run_ingest(s_account.strip(), items, "batch",
-                         f"stress-{uuid.uuid4().hex}",
-                         cap=DEFAULT_CAP + int(s_count))
+                         f"stress-{uuid.uuid4().hex}")
         accepted, rejected = len(res.accepted), len(res.rejected)
         st.success(f"Stress ingestion finished: {accepted} accepted, "
-                   f"{rejected} rejected (cap was "
-                   f"{DEFAULT_CAP + int(s_count)} for this run).")
+                   f"{rejected} rejected (stored cap: {target}).")
         st.caption("Counter and assets stay consistent — check the Results & "
                    "audit page for the capacity usage and audit events.")
