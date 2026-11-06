@@ -83,18 +83,20 @@ with c2:
         ok, msg = remove_number(get_db(), r_acc.strip(), r_tn.strip())
         (st.success if ok else st.warning)(msg)
 
-st.markdown("### Safe reset of this walkthrough")
-st.caption("Reset = targeted cleanup of records **created by this demo** in "
-           "the demo database only. It never drops a database or collection "
-           "and never touches anything outside the demo collections.")
-confirm = st.checkbox("I understand this deletes only this demo's synthetic "
-                      "records from the demo database", key="confirm_reset")
-if st.button("Reset walkthrough (targeted cleanup)", disabled=not confirm,
+st.markdown("### Start from scratch (safe reset)")
+st.caption("Reset = targeted cleanup of every record **created by this demo** "
+           "— including seed data — in the demo database only. It never "
+           "drops a database or collection and never touches anything "
+           "outside the demo collections.")
+confirm = st.checkbox("I understand this deletes all of this demo's synthetic "
+                      "records (seed data, ingested assets, counters, audit "
+                      "events) from the demo database", key="confirm_reset")
+if st.button("Reset walkthrough — start from scratch", disabled=not confirm,
              key="reset_btn"):
-    for coll in (COUNTERS_COLLECTION, AUDIT_COLLECTION,
-                 NUMBER_ASSETS_COLLECTION):
-        n = get_db()[coll].delete_many(
-            {"note": "synthetic demo data"}).deleted_count
+    from lib.sample_data import reset_demo_records
+    removed = reset_demo_records(get_db())
+    for coll, n in removed.items():
         st.caption(f"`{coll}`: removed {n} synthetic demo record(s)")
-    st.success("Demo records cleared. Nothing outside the demo collections "
-               "was touched. Re-seed from the Ingest page when needed.")
+    st.success("Back to a blank slate. Nothing outside the demo collections "
+               "was touched. Seed again from the Ingest page to start over.")
+    st.session_state["seed_info"] = None

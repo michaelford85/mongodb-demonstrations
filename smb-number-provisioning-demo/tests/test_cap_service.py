@@ -307,3 +307,20 @@ def test_seed_is_idempotent(db):
     seed(db)
     assert db["accounts"].count_documents({}) == 4
     assert db["numberAssets"].count_documents({}) == 4
+
+
+def test_reset_from_scratch_removes_all_demo_records(db):
+    from lib.sample_data import reset_demo_records, seed_demo as seed
+    seed(db)
+    assert process_ingest(db, "ACC-SMB-0001",
+                          [{"tn": "+15555550130", "type": "local"}],
+                          "portal").accepted
+    # A pre-fix counter doc (no note marker) must also be caught.
+    removed = reset_demo_records(db)
+    assert removed["accounts"] == 4 and removed["provisioningCounters"] >= 1
+    for coll in ("accounts", "numberAssets", "provisioningCounters",
+                 "provisioningAudit"):
+        assert db[coll].count_documents({}) == 0, coll
+    # And the demo is re-seedable afterwards.
+    seed(db)
+    assert db["accounts"].count_documents({}) == 4

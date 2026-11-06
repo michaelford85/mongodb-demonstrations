@@ -74,10 +74,23 @@ with st.expander("Step 0 · Seed synthetic demo data (idempotent)",
     st.caption("Creates the synthetic accounts, a few assets, and counters "
                "with upserts only. Never drops or overwrites anything.")
     if st.button("Seed demo data", key="seed"):
-        from lib.ui import db as cached_db
         st.session_state["seed_info"] = seed_demo(cached_db())
     if st.session_state.get("seed_info"):
         st.success(f"Seeded (idempotent): {st.session_state['seed_info']}")
+    st.markdown("**Or wipe everything and start from scratch** — removes all "
+                "records created by this demo (seed data, ingested assets, "
+                "counters, audit events) from the demo database only. Never "
+                "drops a database or collection.")
+    if st.button("Reset walkthrough — start from scratch",
+                 disabled=not st.checkbox("I understand this deletes all of "
+                                          "this demo's synthetic records",
+                                          key="confirm_reset_ingest"),
+                 key="reset_btn_ingest"):
+        from lib.sample_data import reset_demo_records
+        removed = reset_demo_records(cached_db())
+        st.success(f"Back to a blank slate: {sum(removed.values())} synthetic "
+                   f"demo record(s) removed. Seed again to start over.")
+        st.session_state["seed_info"] = None
 
 tab_portal, tab_batch, tab_api, tab_re = st.tabs(
     ["🖥️ Portal entry", "📄 Batch CSV upload", "🔌 Direct API (JSON)",

@@ -131,7 +131,8 @@ def set_counter_for_demo(db: Database, account_id: str, active_count: int,
     db[COUNTERS_COLLECTION].update_one(
         {"accountId": account_id, "capType": CAP_TYPE},
         {"$set": {"activeCount": active_count, "cap": cap,
-                  "updatedAt": _now()}},
+                  "updatedAt": _now(),
+                  "note": "synthetic demo data"}},
         upsert=True)
 
 
@@ -139,7 +140,8 @@ def get_or_create_counter(db: Database, account_id: str, cap: int) -> dict:
     """Idempotently ensure the counter exists; never overwrites existing cap."""
     doc = db[COUNTERS_COLLECTION].find_one_and_update(
         {"accountId": account_id, "capType": CAP_TYPE},
-        {"$setOnInsert": {"activeCount": 0, "cap": cap, "updatedAt": _now()}},
+        {"$setOnInsert": {"activeCount": 0, "cap": cap, "updatedAt": _now(),
+                          "note": "synthetic demo data"}},
         upsert=True, return_document=ReturnDocument.AFTER)
     return doc
 

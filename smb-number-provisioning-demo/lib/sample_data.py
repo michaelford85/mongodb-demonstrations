@@ -118,3 +118,22 @@ def seed_demo(db) -> dict:
                               acc["serviceData"]["servicePackage"]["cap"])
     return {"accounts": len(account_docs()),
             "assets": len(existing_asset_docs()), "at": _now().isoformat()}
+
+
+def reset_demo_records(db) -> dict:
+    """Start-from-scratch cleanup: removes every record this demo created
+    (all carry `note: "synthetic demo data"`) from the four demo
+    collections. Never drops a database or collection, and never touches
+    documents without that marker."""
+    from lib.config import (AUDIT_COLLECTION, COUNTERS_COLLECTION,
+                            NUMBER_ASSETS_COLLECTION)
+    removed = {}
+    for coll in (COUNTERS_COLLECTION, AUDIT_COLLECTION,
+                 NUMBER_ASSETS_COLLECTION, ACCOUNTS_COLLECTION):
+        query = {"note": {"$regex": "^synthetic demo data"}}
+        if coll == COUNTERS_COLLECTION:
+            # Counter docs predate the note marker; also match demo account
+            # ids so pre-fix counters are cleaned too.
+            query = {"$or": [query, {"accountId": {"$regex": "^ACC-"}}]}
+        removed[coll] = db[coll].delete_many(query).deleted_count
+    return removed
