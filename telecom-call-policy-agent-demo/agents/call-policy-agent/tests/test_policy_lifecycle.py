@@ -195,3 +195,12 @@ def test_proposed_rule_changes_dry_run_diff():
     assert by_id["call-003"]["after"]["decision"] == "deliver"
     assert by_id["call-001"]["changed"] is False
     assert result["changed_count"] == 1
+
+
+def test_draft_without_version_is_valid_but_published_doc_requires_it():
+    draft = {
+        "policy_id": "p",
+        "rules": [{"rule_id": "r1", "priority": 1, "match": {"enterprise_id": "e"}, "action": "block"}],
+    }
+    assert validate_policy(draft, require_version=False) == []
+    assert any("policy_version" in e for e in validate_policy(draft))

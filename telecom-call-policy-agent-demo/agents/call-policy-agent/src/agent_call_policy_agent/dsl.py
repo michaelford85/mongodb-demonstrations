@@ -78,21 +78,24 @@ def _validate_rule(rule: dict, brand_ids: set, enterprise_ids: set, seen_rule_id
     return errors
 
 
-def validate_policy(policy: dict, brand_ids=None, enterprise_ids=None) -> list:
+def validate_policy(policy: dict, brand_ids=None, enterprise_ids=None, require_version=True) -> list:
     """Validate a policy document against the demo DSL.
 
     Returns a list of human-readable error strings; empty list means valid.
     When brand_ids / enterprise_ids are provided, referential integrity is
-    checked against those catalogs.
+    checked against those catalogs. Drafts (require_version=False) skip the
+    policy_version check because a version is assigned only at publish time.
     """
     errors: list = []
     if not isinstance(policy, dict):
         return ["policy must be an object"]
     if not policy.get("policy_id") or not isinstance(policy["policy_id"], str):
         errors.append("policy_id is required and must be a string")
-    version = policy.get("policy_version")
-    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
-        errors.append("policy_version must be a positive integer")
+    if require_version:
+        # Drafts have no version yet; one is assigned at publish time.
+        version = policy.get("policy_version")
+        if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+            errors.append("policy_version must be a positive integer")
     status = policy.get("status", "draft")
     if status not in POLICY_STATUSES:
         errors.append(f"status must be one of {list(POLICY_STATUSES)}")

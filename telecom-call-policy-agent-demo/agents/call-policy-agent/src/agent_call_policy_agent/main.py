@@ -167,7 +167,7 @@ def submit_policy_draft(
         "source_notes": source_notes,
         "note": "Fictional demo policy - synthetic data only",
     }
-    errors = validate_policy(draft, brand_ids=brand_ids, enterprise_ids=enterprise_ids)
+    errors = validate_policy(draft, brand_ids=brand_ids, enterprise_ids=enterprise_ids, require_version=False)
     if errors:
         store.audit("validation_failed", {"policy_id": policy_id, "errors": errors})
         return json.dumps({"validation": "failed", "errors": errors}, indent=2)
