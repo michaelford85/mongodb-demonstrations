@@ -87,11 +87,38 @@ no dedicated evaluation harness is implemented here.
 ## Prerequisites
 
 - Docker Desktop running (for `agentengine dev up`)
-- Agent Engine CLI (`agentengine`) on your `PATH`
+- Agent Engine CLI (`agentengine`) on your `PATH` (see [Installing the Agent Engine CLI](#installing-the-agent-engine-cli) below)
 - An LLM API key for the configured LLM client (set as `LLM_API_KEY`)
 - Optional: an existing database cluster provisioned by
   [`../atlas-cluster-provisioning/`](../atlas-cluster-provisioning/) (this demo
   never creates, alters, or deletes a cluster)
+
+### Installing the Agent Engine CLI
+
+The `agentengine` CLI installs its binary into `~/.local/bin`. For the
+installer for your platform, see the official Agent Engine installation docs.
+
+**1. Verify the binary exists:**
+
+```bash
+~/.local/bin/agentengine version
+```
+
+**2. Add it to your `PATH` permanently.** `~/.local/bin` may not be on your
+`PATH` by default. For zsh (the macOS default shell):
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Verify the CLI resolves:
+
+```bash
+agentengine version
+```
+
+(For bash, use `~/.bashrc` or `~/.bash_profile` in place of `~/.zshrc`.)
 
 ## Setup
 
@@ -125,12 +152,17 @@ Then open the Playground UI at <http://localhost:3000>. Stop with
   in-memory; the log prints a clear `MOCK MODE` banner. Nothing is persisted.
   Deterministic call evaluation from the CLI works offline against the seeded
   baseline fixture policy.
-- **MongoDB mode:** set `MONGODB_URI` to an existing cluster. The demo uses a
-  dedicated database (`call_policy_demo` by default) and touches **only** its
-  own collections (`policy_drafts`, `policy_versions`, `policy_approvals`,
-  `policy_audit`, `demo_context`). Note: `agentengine dev` supplies its own
-  local MongoDB URI; set `MONGODB_URI` explicitly in the environment when you
-  want the app data on your cluster.
+- **MongoDB mode:** set `MONGODB_URI` in `.env` to an existing cluster. The demo
+  uses a dedicated database (`call_policy_demo` by default) and touches **only**
+  its own collections (`policy_drafts`, `policy_versions`, `policy_approvals`,
+  `demo_context`). **Important:** by default `agentengine dev` runs its own
+  local MongoDB container and overrides `MONGODB_URI`. To use your Atlas
+  cluster in local dev, set `mongodb.local: false` under `services` in
+  `dev.yaml`, then run a full `agentengine dev stop && agentengine dev up`
+  (a plain `dev restart` reuses previously generated artifacts and will keep
+  pointing at the local container). Note the app's approval/audit/demo
+  collections follow `MONGODB_URI`, while the runtime's checkpoint database
+  follows `MDB_AGENTIC_STORE_DB`.
 
 ## Example prompts (playground)
 
