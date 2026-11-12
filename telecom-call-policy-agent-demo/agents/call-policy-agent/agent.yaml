@@ -1,0 +1,38 @@
+# Human-readable app slug used by Agent Engine tooling.
+# `agentengine create` should rewrite this when generating a new app from the template.
+name: call-policy-agent
+# Python import path to the SDK App instance.
+# Format: <module path>:<variable name>. This template exposes `app` from
+# src/agent_call_policy_agent/main.py.
+entrypoint: agent_call_policy_agent.main:app
+framework: langgraph
+# Runtime feature flags controlled by agent.yaml, not .env.
+# Set memory to true to enable long-term memory; VOYAGE_API_KEY must be present
+# in .env when memory is enabled.
+features:
+    durable_workflow: true
+    memory: false
+# Tool placement and pass-through secrets. Interrupt tools must stay on the agent.
+sandboxes:
+    agent:
+        secrets: ["*"]
+        tools:
+            - request_policy_approval
+    tool:
+        secrets: ["*"]
+        tools:
+            - get_enterprise_profile
+            - list_carrier_relationships
+            - get_brand_metadata
+            - get_active_policy
+            - list_sample_calls
+            - submit_policy_draft
+            - simulate_policy
+            - publish_policy
+            - evaluate_call_tool
+            - show_audit_trail
+version: 0.1.0
+network:
+    egress:
+        - fqdn: api.anthropic.com
+          ports: [443]
