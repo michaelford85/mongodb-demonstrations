@@ -357,8 +357,11 @@ class MongoStore(BaseStore):
 
     def clear_demo_data(self) -> None:
         """Drop ONLY the demo collections in the demo database."""
-        for name in COLLECTIONS.values():
-            self._col(name).drop()
+        for collection_name in COLLECTIONS.values():
+            # Access collections directly by name; _col() maps logical keys.
+            if self._client is None:
+                self._col("drafts")  # connect + create indexes once
+            self._client[self._database][collection_name].drop()
         if self._client is not None:
             self._client.close()
             self._client = None

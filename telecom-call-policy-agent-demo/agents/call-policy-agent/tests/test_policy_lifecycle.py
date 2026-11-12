@@ -204,3 +204,40 @@ def test_draft_without_version_is_valid_but_published_doc_requires_it():
     }
     assert validate_policy(draft, require_version=False) == []
     assert any("policy_version" in e for e in validate_policy(draft))
+
+
+def test_mongostore_clear_demo_data_maps_collection_names(monkeypatch):
+    """clear_demo_data drops collections by NAME, not via the logical-key map."""
+    from agent_call_policy_agent import store as store_mod
+
+    dropped = []
+
+    class FakeCol:
+        def __init__(self, name):
+            self.name = name
+
+        def drop(self):
+            dropped.append(self.name)
+
+        def create_index(self, *a, **k):
+            pass
+
+    class FakeDB:
+        def __getitem__(self, name):
+            return FakeCol(name)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __getitem__(self, db):
+            return FakeDB()
+
+        def close(self):
+            pass
+
+    s = store_mod.MongoStore("mongodb://localhost:27017", "call_policy_demo")
+    monkeypatch.setattr(store_mod, "MongoClient", FakeClient)
+    s.clear_demo_data()
+    assert sorted(dropped) == sorted(set(store_mod.COLLECTIONS.values()))
+    assert s._client is None
