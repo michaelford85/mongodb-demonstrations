@@ -11,7 +11,7 @@ import json
 import os
 import sys
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from agent_call_policy_agent.evaluator import evaluate_call
 from agent_call_policy_agent.fixtures import ALL_FIXTURES
@@ -19,6 +19,12 @@ from agent_call_policy_agent.store import DEMO_DATABASE_DEFAULT, create_store
 
 
 def main() -> int:
+    # Load .env BEFORE deriving environment-backed CLI defaults, so a value set
+    # only in .env becomes the default for --database. load_dotenv() does not
+    # override already-exported process environment variables, so precedence is:
+    # explicit --database flag > exported MONGODB_DATABASE > .env > project default.
+    # usecwd=True searches from the current working directory upward.
+    load_dotenv(find_dotenv(usecwd=True))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--from-number", help="Evaluate a single E.164 number instead of all samples")
     parser.add_argument("--carrier-id", default="demo_carrier_001")
@@ -27,7 +33,6 @@ def main() -> int:
     parser.add_argument("--database", default=os.environ.get("MONGODB_DATABASE", DEMO_DATABASE_DEFAULT))
     args = parser.parse_args()
 
-    load_dotenv()
     uri = os.environ.get("MONGODB_URI", "")
     store = create_store(uri, args.database)
     store.ensure_seeded()

@@ -193,14 +193,31 @@ Expected guardrail behavior to show on camera:
 
 ## Deterministic call evaluation (no LLM)
 
+Call evaluation is **deterministic**: it reads the active policy snapshot
+(`policy_versions` where `status: "active"`) and never invokes a model.
+
 ```bash
 # Mock mode, seeded baseline policy:
 PYTHONPATH=src python -m agent_call_policy_agent.evaluate_cli
 
 # One ad-hoc number against the active policy on an existing cluster:
 MONGODB_URI=... PYTHONPATH=src python -m agent_call_policy_agent.evaluate_cli \
-  --from-number +15551230001
+  --from-number +15551230001 \
+  --carrier-id demo_carrier_001 --origin-country US --enterprise-id demo_enterprise_001
 ```
+
+The database defaults resolve in this order: explicit `--database` flag >
+exported `MONGODB_DATABASE` environment variable > `MONGODB_DATABASE` in
+`.env` > the built-in default (`call_policy_demo`).
+
+**Limitations to be upfront about:**
+
+- `--from-number` only sets the *call input* (number, carrier, origin,
+  enterprise). It does **not** select a different active policy for that
+  number — there is no per-number or per-tenant policy selection in this
+  demo; every evaluation uses the single active snapshot.
+- The human approval step is a **demo workflow gate** (native suspend/resume
+  with a recorded decision), not IAM-grade identity enforcement.
 
 ## Reset / re-seed
 
