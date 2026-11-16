@@ -11,7 +11,7 @@ framework: langgraph
 # in .env when memory is enabled.
 features:
     durable_workflow: true
-    memory: false
+    memory: true
 # Tool placement and pass-through secrets. Interrupt tools must stay on the agent.
 sandboxes:
     agent:

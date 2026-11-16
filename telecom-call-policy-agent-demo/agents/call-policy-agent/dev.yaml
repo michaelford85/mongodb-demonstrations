@@ -14,6 +14,6 @@ services:
   #   port: 8002  # Tool execution runtime.
   # memory-server:
   #   port: 8081  # Long-term memory service.
-  # mongodb:
-  #   local: true  # Default true. Set false to use a remote Atlas cluster in local dev.
+  mongodb:
+    local: false  # false = use the MONGODB_URI from .env (remote Atlas) instead of the local dev container.
   #   port: 27017  # Local Atlas host port; ignored when local is false.
