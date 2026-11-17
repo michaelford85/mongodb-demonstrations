@@ -1,0 +1,77 @@
+{
+  "name": "kafka_cdc_stage",
+  "comment": "Processor A of the two-processor fallback: consume AWS DMS CDC messages from Amazon MSK and stage the raw read-model document (including delete markers) in Atlas. Processor B (staging_to_vector) embeds and materializes the search read model.",
+  "options": {
+    "dlq": {
+      "connectionName": "demo-atlas",
+      "db": "enterprise_search_demo",
+      "coll": "dlq_items"
+    }
+  },
+  "pipeline": [
+    {
+      "$source": {
+        "connectionName": "demo-msk",
+        "topic": "cdc-knowledge-items"
+      }
+    },
+    {
+      "$match": {
+        "$and": [
+          { "$or": [
+            { "metadata.record-type": { "$exists": false } },
+            { "metadata.record-type": "data" }
+          ] },
+          { "metadata.table-name": "knowledge_items" },
+          { "metadata.operation": { "$in": ["load", "insert", "update", "delete"] } }
+        ]
+      }
+    },
+    {
+      "$set": {
+        "_id": {
+          "$concat": ["knowledge-items-", { "$toString": "$data.id" }]
+        },
+        "_is_delete": { "$eq": ["$metadata.operation", "delete"] },
+        "entity_type": { "$ifNull": ["$data.entity_type", ""] },
+        "source_id": { "$toString": "$data.id" },
+        "title": { "$ifNull": ["$data.title", ""] },
+        "body": { "$ifNull": ["$data.body", ""] },
+        "tags": { "$ifNull": ["$data.tags", ""] },
+        "department": { "$ifNull": ["$data.department", ""] },
+        "author": { "$ifNull": ["$data.author", ""] },
+        "is_active": { "$ifNull": ["$data.is_active", false] },
+        "source_updated_at": { "$ifNull": ["$data.updated_at", "$$NOW"] },
+        "cdc_operation": "$metadata.operation"
+      }
+    },
+    {
+      "$project": {
+        "_id": 1,
+        "_is_delete": 1,
+        "entity_type": 1,
+        "source_id": 1,
+        "title": 1,
+        "body": 1,
+        "tags": 1,
+        "department": 1,
+        "author": 1,
+        "is_active": 1,
+        "source_updated_at": 1,
+        "cdc_operation": 1
+      }
+    },
+    {
+      "$merge": {
+        "into": {
+          "connectionName": "demo-atlas",
+          "db": "enterprise_search_demo",
+          "coll": "staging_items"
+        },
+        "on": "_id",
+        "whenMatched": "replace",
+        "whenNotMatched": "insert"
+      }
+    }
+  ]
+}

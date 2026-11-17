@@ -58,6 +58,9 @@ cp .env.example .env   # fill in; .env is git-ignored
 | `MIXED_INSERT_PER_SEC`, `MIXED_UPDATE_PER_SEC`, `MIXED_DELETE_PER_SEC` | Optional write churn; default 0 (off). |
 | `MIXED_TTL_SIMULATION` | `none` (default) or `delete_only`. This demo **never creates a TTL index**; TTL-like behavior is simulated with deletes only, and only if you opt in. |
 | `CLUSTER_LABEL`, `SEARCH_NODE_TIER`, `SEARCH_NODE_TOPOLOGY` | Manual metadata recorded in results. Never inferred from the URI. |
+| `ATLAS_BENCHMARK_REGIONS` | Comma-separated region names (e.g. `region1,region2,region3`) — operator-entered, verified in Atlas; never inferred. |
+| `SEARCH_NODE_COUNT` | Operator-entered Search Node count/topology; never inferred. |
+| `INDEX_VALIDATION_WINDOW_SECONDS` | Sustained-validation window before the index phase reports `ready` (default 30). |
 
 ### Hard safety caps
 
@@ -109,6 +112,33 @@ Each phase writes `results/<phase>-<ts>.json` (machine-readable) and a matching 
 
 **Measured vs operator-recorded:** Search index size, per-region readiness, Search Node CPU/storage, and index freshness/lag are **not** exposed by the driver API used here. They are listed in results as operator-recorded metrics with the Atlas UI location to read them (Cluster → **Search** tab index metrics). Do not substitute collection storage size. The DSN runbook template captures these per region.
 
+## Readiness semantics and evidence categories (DSN-aware runs)
+
+The `index` phase reports **distinct milestones**, never collapsed:
+
+1. **Create request accepted** — timestamp + request round-trip.
+2. **Documented index state transitions** — `status` (`PENDING`/`BUILDING`/`READY`) and `queryable` from `list_search_indexes` (driver API; see [PyMongo Collection API](https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html) and [Manage Search indexes](https://www.mongodb.com/docs/atlas/atlas-search/manage-indexes/)).
+3. **First successful representative `$search` query** — through the normal cluster connection.
+4. **Sustained validation** — representative queries must keep succeeding for the whole `INDEX_VALIDATION_WINDOW_SECONDS` window; only then does the phase report `ready`.
+
+Evidence categories, kept separate:
+
+- **Index state** — from the documented driver API (`status`, `queryable`).
+- **Query succeeded through tested route** — proves only that the tested route served the query at that moment. It does **not** prove readiness on every Search Node or in every region.
+- **Per-node/per-region readiness** — **not available via supported automation in this demo.** The MongoDB driver exposes index-level state only; this demo deliberately does not call Atlas Admin APIs, so per-node health is recorded as `not_available_via_supported_automation` with per-region operator-evidence fields (fill in only what the [Atlas UI Search tab / monitoring](https://www.mongodb.com/docs/search/deployment/monitoring/) or Support actually shows). A cluster-level READY state is never treated as proof that every DSN is healthy.
+
+## What this demo cannot prove
+
+- Production availability or SLAs, or a guaranteed cutover time for anything.
+- Readiness on **every** DSN/region unless directly verified by a supported source (see above).
+- Exact three-region behavior for your topology.
+- DSN migration duration from a fresh index build — fresh builds and the [DSN migration](https://www.mongodb.com/docs/search/deployment/deployment-options/) are different operations ([runbook](./DSN_RUNBOOK.md)).
+- Production data-shape fidelity: synthetic documents approximate field counts/types but are not your production data.
+
+## Results template for MongoDB Support
+
+`results/*.json` already contain: sanitized cluster label, namespace, index name + definition hash, generator seed, runtime/driver versions, operator-entered tier/regions/node count, per-phase UTC timestamps/elapsed, offered/achieved QPS + latency percentiles, milestone timings, sustained-validation result, per-node/per-region status (`not_available_via_supported_automation` + operator evidence fields), and limitation notes. Add manually from Atlas UI: Search index size (index metrics, not collection storage), per-node/per-region observations, and Search Node CPU/storage. Never include credentials or full URIs.
+
 ## Run matrix
 
 | Scenario | `DOC_COUNT` | `LOAD_QPS` | Writes | Purpose |
@@ -139,9 +169,11 @@ Each phase writes `results/<phase>-<ts>.json` (machine-readable) and a matching 
 python -m pytest tests/ -v
 ```
 
-## References (verified MongoDB documentation)
+## References (verified reachable MongoDB documentation)
 
-- Atlas Search overview & Search Nodes: https://www.mongodb.com/docs/atlas/search/atlas-search-overview/
-- Manage Search indexes (create/poll/drop): https://www.mongodb.com/docs/atlas/search/manage-indexes/
+- Atlas Search overview: https://www.mongodb.com/docs/atlas/atlas-search/
+- Manage Search indexes (create/poll/drop): https://www.mongodb.com/docs/atlas/atlas-search/manage-indexes/
 - `$search` pipeline: https://www.mongodb.com/docs/atlas/atlas-search/query-syntax/
+- Deployment options incl. Dedicated Search Nodes: https://www.mongodb.com/docs/search/deployment/deployment-options/
+- Monitoring Search: https://www.mongodb.com/docs/search/deployment/monitoring/
 - PyMongo search index management: https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html

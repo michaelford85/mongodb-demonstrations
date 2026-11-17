@@ -1,0 +1,145 @@
+{
+  "name": "staging_to_vector",
+  "comment": "Processor B of the two-processor fallback: watch the staging_items collection, embed searchable text with Voyage AI over HTTPS (proven change-stream + dynamic payload path), and materialize the delete-aware search read model. Embedding output_dimension omitted: voyage-4 default is 1024 \u2014 must match the Atlas Vector Search index. No $$NOW anywhere in the pipeline: it is unavailable in ASP contexts and corrupts $https requests.",
+  "options": {
+    "dlq": {
+      "connectionName": "demo-atlas",
+      "db": "enterprise_search_demo",
+      "coll": "dlq_items"
+    }
+  },
+  "pipeline": [
+    {
+      "$source": {
+        "connectionName": "demo-atlas",
+        "db": "enterprise_search_demo",
+        "coll": "staging_items"
+      }
+    },
+    {
+      "$set": {
+        "searchable_text": {
+          "$concat": [
+            {
+              "$ifNull": [
+                "$fullDocument.title",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$fullDocument.body",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$fullDocument.tags",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$fullDocument.entity_type",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$fullDocument.department",
+                ""
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$https": {
+        "connectionName": "voyage-ai",
+        "path": "embeddings",
+        "method": "POST",
+        "as": "voyage_response",
+        "onError": "dlq",
+        "config": {
+          "connectionTimeoutSec": 30,
+          "requestTimeoutSec": 60,
+          "parseJsonStrings": true
+        },
+        "payload": [
+          {
+            "$replaceRoot": {
+              "newRoot": {
+                "input": "$searchable_text",
+                "model": "voyage-4",
+                "input_type": "document"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "$set": {
+        "embedding": {
+          "$arrayElemAt": [
+            "$voyage_response.data.embedding",
+            0
+          ]
+        }
+      }
+    },
+    {
+      "$project": {
+        "_id": "$fullDocument._id",
+        "_is_delete": {
+          "$ifNull": [
+            "$fullDocument._is_delete",
+            false
+          ]
+        },
+        "entity_type": "$fullDocument.entity_type",
+        "source_id": "$fullDocument.source_id",
+        "title": "$fullDocument.title",
+        "body": "$fullDocument.body",
+        "tags": "$fullDocument.tags",
+        "department": "$fullDocument.department",
+        "author": "$fullDocument.author",
+        "is_active": "$fullDocument.is_active",
+        "searchable_text": 1,
+        "embedding": 1,
+        "source_updated_at": "$fullDocument.source_updated_at",
+        "cdc_operation": "$fullDocument.cdc_operation"
+      }
+    },
+    {
+      "$merge": {
+        "into": {
+          "connectionName": "demo-atlas",
+          "db": "enterprise_search_demo",
+          "coll": "search_items"
+        },
+        "on": "_id",
+        "whenMatched": {
+          "$cond": {
+            "if": "$_is_delete",
+            "then": "delete",
+            "else": "replace"
+          }
+        },
+        "whenNotMatched": {
+          "$cond": {
+            "if": "$_is_delete",
+            "then": "discard",
+            "else": "insert"
+          }
+        },
+        "parallelism": 1
+      }
+    }
+  ]
+}

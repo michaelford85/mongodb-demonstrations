@@ -27,7 +27,10 @@ Record UTC timestamps for every step below in `results/dsn_transition.md`
 | 5 | Index back to `READY`/queryable, region 1 | | |
 | 6 | Index back to `READY`/queryable, region 2 | | |
 | 7 | Index back to `READY`/queryable, region 3 | | |
-| 8 | Post-change: repeat `benchmark.py load` baseline; compare achieved QPS + latency vs step 1 | | |
+| 8 | First successful representative `$search` query after the change (run `python confirm_search_nodes.py`) | | |
+| 9 | Sustained validation: queries succeed for the configured window (`INDEX_VALIDATION_WINDOW_SECONDS`) | | |
+| 10 | Per-node/per-region status: record **only** what Atlas UI / Support actually shows, per region (the driver does not expose this) | | |
+| 11 | Post-change: repeat `benchmark.py load` baseline; compare achieved QPS + latency vs step 1 | | |
 
 ## Required confirmations before you begin
 
@@ -46,7 +49,9 @@ Record UTC timestamps for every step below in `results/dsn_transition.md`
 - Production availability SLAs.
 - That fresh-index build time predicts DSN transition time.
 
-## References
+## References (URLs verified reachable at time of writing)
 
-- Atlas Search Nodes: https://www.mongodb.com/docs/atlas/search/atlas-search-overview/#search-nodes
-- Atlas Search index status/monitoring: https://www.mongodb.com/docs/atlas/search/manage-indexes/
+- Deployment options incl. Dedicated Search Nodes and migration: https://www.mongodb.com/docs/search/deployment/deployment-options/
+- Monitoring Search: https://www.mongodb.com/docs/search/deployment/monitoring/
+- Manage Search indexes (create/poll/drop): https://www.mongodb.com/docs/atlas/atlas-search/manage-indexes/
+- `$search` query syntax: https://www.mongodb.com/docs/atlas/atlas-search/query-syntax/

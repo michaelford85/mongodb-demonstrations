@@ -136,7 +136,28 @@ def phase_index(cfg) -> dict:
                   cfg.index_definition_file or "search_index.default.json"),
               "warning": "default definition is an illustrative lexical mapping, "
                          "not equivalent to any production mapping",
-              "state_transitions": []}
+              "state_transitions": [],
+              "topology_metadata": {
+                  "region_names": cfg.region_names,
+                  "search_node_tier": cfg.search_node_tier,
+                  "search_node_count": cfg.search_node_count,
+                  "note": "operator-entered; not verified or discovered by this script"},
+              # Per-node/per-region DSN health is NOT exposed by the MongoDB
+              # driver and this demo does not call Atlas Admin APIs.
+              "per_node_status": {
+                  "status": "not_available_via_supported_automation",
+                  "explanation": "The driver exposes index-level status/queryable "
+                                 "only. Per-node/per-region Search Node health must be "
+                                 "confirmed by the operator via the Atlas UI (Cluster > "
+                                 "Search tab / monitoring) or Support, and recorded as "
+                                 "operator-provided evidence.",
+                  "operator_evidence": [
+                      {"region": r, "observed_state": "<fill in>", "utc": "<fill in>",
+                       "source": "Atlas UI or Support; enter only what the UI/support "
+                                 "actually shows"}
+                      for r in (cfg.region_names or ["<region 1>", "<region 2>",
+                                                     "<region 3>"])],
+              }}
     try:
         existing = list(coll.list_search_indexes(cfg.search_index_name))
         if existing:
@@ -155,10 +176,20 @@ def phase_index(cfg) -> dict:
             result["created"] = True
             result["create_request_seconds"] = round(time.monotonic() - create_requested, 3)
 
-        # Poll until queryable + verified by a representative query.
+        # Poll documented index state; probe with a representative query as soon
+        # as the index reports queryable, then run a sustained validation window.
+        # Milestones (kept distinct):
+        #   1. create request accepted
+        #   2. documented index state transitions (status / queryable)
+        #   3. first successful representative $search query
+        #   4. sustained validation: queries succeed for the whole window
+        # A successful query proves only that the tested route served it at that
+        # moment — never that every Search Node/region is ready.
         deadline = time.monotonic() + cfg.index_ready_timeout_seconds
         last_state = None
         queryable = False
+        first_query_utc = None
+        validation = None
         while time.monotonic() < deadline and not STOP.is_set():
             docs = list(coll.list_search_indexes(cfg.search_index_name))
             status = docs[0].get("status") if docs else "NOT_FOUND"
@@ -168,20 +199,71 @@ def phase_index(cfg) -> dict:
                     {"utc": utc_now_iso(), "status": status, "queryable": queryable})
                 print(f"  index status: {status} queryable={queryable}", flush=True)
                 last_state = status
-            if status == "READY" and queryable:
-                probe = list(coll.aggregate([
-                    {"$search": {"index": cfg.search_index_name,
-                                 "text": {"query": "mongodb", "path": "title"}}},
-                    {"$limit": 1}]))
-                if probe:
-                    result["verified_queryable"] = True
-                    result["status"] = "ready"
-                    break
+            if queryable:
+                probe_ok = False
+                try:
+                    probe = list(coll.aggregate([
+                        {"$search": {"index": cfg.search_index_name,
+                                     "text": {"query": "mongodb", "path": "title"}}},
+                        {"$limit": 1}], maxTimeMS=10_000))
+                    probe_ok = True
+                except Exception as exc:
+                    print(f"  probe query failed (will retry): {exc}", flush=True)
+                if probe_ok:
+                    if first_query_utc is None:
+                        first_query_utc = utc_now_iso()
+                        result["first_successful_query"] = {
+                            "utc": first_query_utc,
+                            "seconds_from_create_request": round(
+                                time.monotonic() - create_requested, 2),
+                            "caveat": "proves the tested route served one query at "
+                                      "this moment; not per-node/per-region readiness"}
+                        print("  first successful $search query", flush=True)
+                    # Sustained validation window before declaring ready.
+                    val_deadline = time.monotonic() + cfg.validation_window_seconds
+                    attempts = successes = 0
+                    validation_ok = True
+                    while time.monotonic() < val_deadline and not STOP.is_set():
+                        attempts += 1
+                        try:
+                            list(coll.aggregate([
+                                {"$search": {"index": cfg.search_index_name,
+                                             "text": {"query": "mongodb",
+                                                      "path": "title"}}},
+                                {"$limit": 1}], maxTimeMS=10_000))
+                            successes += 1
+                        except Exception as exc:
+                            validation_ok = False
+                            print(f"  validation query failed: {exc}", flush=True)
+                        time.sleep(min(cfg.poll_interval_seconds,
+                                       max(val_deadline - time.monotonic(), 0)))
+                    validation = {
+                        "window_seconds": cfg.validation_window_seconds,
+                        "attempts": attempts, "successes": successes,
+                        "failures": attempts - successes,
+                        "passed": validation_ok and attempts > 0,
+                        "started_utc": first_query_utc,
+                        "ended_utc": utc_now_iso()}
+                    result["sustained_validation"] = validation
+                    if validation["passed"]:
+                        result["verified_queryable"] = True
+                        result["status"] = "ready"
+                        break
+                    # Window failed; keep polling until the outer deadline.
             time.sleep(cfg.poll_interval_seconds)
         else:
             result["status"] = "timeout_or_interrupted"
+        if STOP.is_set() and result["status"] in {"started", "timeout_or_interrupted"}:
+            result["status"] = "incomplete_interrupted"
         result["create_to_verified_ready_seconds"] = round(
             time.monotonic() - create_requested, 2)
+        if first_query_utc is not None:
+            result["create_to_first_query_seconds"] = round(
+                time.monotonic() - create_requested, 2)
+        result["note_readiness_semantics"] = (
+            "'ready' = documented index state READY + queryable + representative "
+            "queries succeeded through the normal connection for the validation "
+            "window. It does NOT establish readiness on every Search Node or region.")
         result["poll_interval_seconds"] = cfg.poll_interval_seconds
         result["note_index_size"] = (
             "Search index size is not exposed via this driver API. Record it from "

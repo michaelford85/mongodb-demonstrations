@@ -1,0 +1,52 @@
+# Project-level settings go in this file.
+
+memory:
+  # Memory-server log level. One of: debug | info | warning | error | critical.
+  log_level: info
+
+  # Voyage AI embeddings.
+  # The Voyage API key is NOT set here — upload it as a project secret with:
+  #   agentengine secret set VOYAGE_API_KEY
+  voyage:
+    model: "voyage-4-large"
+    dimension: 1024
+
+  # Short-term memory write-path behaviour.
+  short_term:
+    # Embed each turn's content when it is written (only when the caller supplies
+    # no embedding), so it is searchable by relevance immediately instead of
+    # waiting for background embedding. Adds embedding latency to the write.
+    embed_on_write: false
+
+  # LLM the memory server uses for background extraction.
+  # Agents can use a different provider/model.
+  # After changing it, run:
+  #   agentengine memory configure && agentengine memory apply
+  # The API key is NOT set here. Upload it as a project secret:
+  #   agentengine secret set LLM_API_KEY --sync
+  extraction_llm:
+    provider: anthropic
+    model: claude-sonnet-5
+    api_key_secret: LLM_API_KEY
+
+  background_extraction:
+    # Snapshot promotion
+    snapshot:
+      max_messages: 20
+      stale_minutes: 1
+
+  # Extraction pipeline. The 'enabled' list below selects which memory types are
+  # extracted in the background; it ships with a sensible default set. Edit the
+  # list to add or remove types, or set it to [] to turn extraction off entirely.
+  # Valid types: semantic, episodic, taxonomic, preferences, procedural.
+  # Each type may also take an optional 'prompt' to override the system default, e.g.
+  #   semantic:
+  #     prompt: "..."
+  # NOTE: removing the 'enabled' line entirely falls back to the server default;
+  # keep an explicit list (or []) to control exactly which types run.
+  extraction:
+    enabled:
+      - semantic
+      - episodic
+      - taxonomic
+      - procedural

@@ -1,0 +1,206 @@
+{
+  "name": "pg_cdc_vector_v4",
+  "options": {
+    "dlq": {
+      "connectionName": "demo-atlas",
+      "db": "enterprise_search_demo",
+      "coll": "dlq_items"
+    }
+  },
+  "pipeline": [
+    {
+      "$source": {
+        "connectionName": "demo-msk",
+        "topic": "cdc-knowledge-items"
+      }
+    },
+    {
+      "$set": {
+        "searchable_text": {
+          "$concat": [
+            {
+              "$ifNull": [
+                "$data.title",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$data.body",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$data.tags",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$data.entity_type",
+                ""
+              ]
+            },
+            " ",
+            {
+              "$ifNull": [
+                "$data.department",
+                ""
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$https": {
+        "connectionName": "voyage-ai",
+        "path": "embeddings",
+        "method": "POST",
+        "as": "voyage_response",
+        "onError": "dlq",
+        "config": {
+          "connectionTimeoutSec": 30,
+          "requestTimeoutSec": 60,
+          "parseJsonStrings": true
+        },
+        "payload": [
+          {
+            "$replaceRoot": {
+              "newRoot": {
+                "input": "$searchable_text",
+                "model": "voyage-4",
+                "input_type": "document"
+              }
+            }
+          }
+        ],
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "$set": {
+        "embedding": {
+          "$arrayElemAt": [
+            "$voyage_response.data.embedding",
+            0
+          ]
+        }
+      }
+    },
+    {
+      "$set": {
+        "_id": {
+          "$concat": [
+            "knowledge-items-",
+            {
+              "$toString": "$data.id"
+            }
+          ]
+        },
+        "_is_delete": {
+          "$eq": [
+            "$metadata.operation",
+            "delete"
+          ]
+        },
+        "source_updated_at": {
+          "$toDate": {
+            "$toString": {
+              "$ifNull": [
+                "$data.updated_at",
+                "$$NOW"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "$project": {
+        "entity_type": {
+          "$ifNull": [
+            "$data.entity_type",
+            ""
+          ]
+        },
+        "source_id": {
+          "$toString": "$data.id"
+        },
+        "title": {
+          "$ifNull": [
+            "$data.title",
+            ""
+          ]
+        },
+        "body": {
+          "$ifNull": [
+            "$data.body",
+            ""
+          ]
+        },
+        "tags": {
+          "$ifNull": [
+            "$data.tags",
+            ""
+          ]
+        },
+        "department": {
+          "$ifNull": [
+            "$data.department",
+            ""
+          ]
+        },
+        "author": {
+          "$ifNull": [
+            "$data.author",
+            ""
+          ]
+        },
+        "is_active": {
+          "$ifNull": [
+            "$data.is_active",
+            false
+          ]
+        },
+        "searchable_text": 1,
+        "embedding": 1,
+        "source_updated_at": 1,
+        "cdc_operation": "$metadata.operation",
+        "cdc_ts": 1,
+        "processed_at": "$$NOW"
+      }
+    },
+    {
+      "$merge": {
+        "into": {
+          "connectionName": "demo-atlas",
+          "db": "enterprise_search_demo",
+          "coll": "search_items"
+        },
+        "on": "_id",
+        "whenMatched": {
+          "$cond": {
+            "if": "$_is_delete",
+            "then": "delete",
+            "else": "replace"
+          }
+        },
+        "whenNotMatched": {
+          "$cond": {
+            "if": "$_is_delete",
+            "then": "discard",
+            "else": "insert"
+          }
+        },
+        "parallelism": 1
+      }
+    }
+  ]
+}

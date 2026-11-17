@@ -1,0 +1,6 @@
+pymongo>=4.7.0
+python-dotenv>=1.0.0
+voyageai>=0.3.0
+psycopg2-binary>=2.9.9
+streamlit>=1.36.0
+pytest>=8.0.0
