@@ -74,6 +74,20 @@ Atlas creates partitions first for the `title` field, followed by the `plot` fie
 
 ---
 
+## Streamlit GUI
+
+A visual walkthrough of the hot/cold tiers is included:
+
+```bash
+streamlit run app.py
+```
+
+The app shows the live hot-tier document counts with timings, and — once
+`FEDERATED_URI` is configured and the first archive run has happened —
+side-by-side live vs. federated query timing plus a per-title hot/cold
+lookup. While the archive is not configured it clearly says so and shows
+only real live-tier data; no simulated archived results are presented.
+
 ## Files
 
 | File | Purpose |

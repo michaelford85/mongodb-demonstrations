@@ -150,6 +150,20 @@ Remove the QE demo and restore `sample_analytics.accounts` to plaintext:
 python3 scripts/qe_demo.py remove
 ```
 
+## Streamlit GUI
+
+A visual walkthrough of both demos is included:
+
+```bash
+streamlit run app.py
+```
+
+The app shows a side-by-side CSFLE/QE comparison, live status of each demo
+collection (how many fields are encrypted), and the same apply / query /
+decrypt / remove actions as the CLI scripts behind confirmation checkboxes.
+It displays ciphertext and decrypted field values only — key material is
+never shown.
+
 ## Notes
 
 - Both demos create temporary backup collections before changing the sample collection.
