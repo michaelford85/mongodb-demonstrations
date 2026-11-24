@@ -216,6 +216,42 @@ PYTHONPATH=src python scripts/create_vector_index.py
 If a prerequisite is missing (no URI, no index, driver/Atlas error), the tool
 degrades to keyword fallback and says so — it does not silently fail.
 
+## Runtime memory collections (Agent Engine long-term memory)
+
+Because `agent.yaml` enables `features.memory: true`, the runtime's memory
+server writes long-term memory in addition to the demo's own collections.
+When the local stack is pointed at an Atlas cluster (`mongodb: local: false`
+in `dev.yaml`), it creates a runtime-owned database (`mdb_memory_…`) with one
+collection per memory type, each backed by a Voyage-embedding Vector Search
+index plus a text-search index. The demo application never reads or writes
+these collections; they belong to the memory server.
+
+What each memory type is for (selected by the `extraction.enabled` list in
+`project-config.yaml`; the background extractor is an LLM that distills them
+from conversations):
+
+- **Semantic** — distilled facts and general knowledge ("service X is in
+  provisioning"), independent of any single conversation.
+- **Episodic** — records of specific interactions/episodes: what was asked,
+  what happened, and when, so past sessions can be recalled.
+- **Procedural** — learned workflows or how-to sequences: the steps that
+  worked for a task, reusable as guidance for the next one.
+- **Taxonomic** — structure about entities and their categories/relationships
+  (e.g. workspaces → services → tags), kept current as facts change.
+- **Preferences** (not enabled here) — the operator's stated likes/dislikes
+  and standing instructions.
+- **Snapshot** — a promoted, searchable summary of recent short-term
+  conversation turns (`background_extraction.snapshot` in
+  `project-config.yaml`), bridging short-term chat context into long-term
+  memory.
+
+Note the separation of concerns: this runtime memory is *agent memory about
+the conversation*, whereas the demo's `change_notes` collection is *demo
+fixture data* the agent reads through explicit tools (optionally via Atlas
+Automated Embedding). If you don't want memory collections created at all,
+set `features.memory: false` in `agent.yaml` (and then `VOYAGE_API_KEY` is
+not needed).
+
 ## Example prompts (playground)
 
 1. *"Show me the current operating configuration for demo_workspace_001 and
