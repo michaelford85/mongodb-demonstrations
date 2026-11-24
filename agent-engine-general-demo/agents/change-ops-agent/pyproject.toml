@@ -1,0 +1,41 @@
+[project]
+name = "change-ops-agent"
+version = "0.1.0"
+description = "Domain-neutral operational change lifecycle demo for Agent Engine"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+dependencies = [
+    "agent-engine-runner-shared[mongodb,tracing]>=0.11.3,<1",
+    "agent-engine-sdk-langgraph>=0.11.3,<1",
+    "python-dotenv>=1.0.0",
+    "grpcio>=1.76.0",
+    "grpcio-health-checking>=1.76.0",
+    "langchain>=1.0.0",
+    "langchain-anthropic>=1.4.0",
+    "pymongo>=4.9.0",
+]
+
+[project.scripts]
+change-ops-agent = "agent_change_ops_agent.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_change_ops_agent"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.390",
+    "pytest>=8.0.0",
+    "ruff>=0.1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
